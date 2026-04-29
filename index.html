@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="רשימת קניות">
+<meta name="theme-color" content="#1D9E75">
+<title>רשימת קניות</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --green:#1D9E75;--green-l:#E1F5EE;--green-d:#085041;
+  --amber:#BA7517;--amber-l:#FAEEDA;
+  --blue:#185FA5;--blue-l:#E6F1FB;
+  --coral:#993C1D;--coral-l:#FAECE7;
+  --purple:#534AB7;--purple-l:#EEEDFE;
+  --teal:#0F6E56;--teal-l:#E1F5EE;
+  --bg:#f8f7f4;--card:#fff;--border:rgba(0,0,0,0.1);
+  --text:#2C2C2A;--muted:#888780;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,'Heebo',sans-serif;direction:rtl;background:var(--bg)}
+.app{
+  width:100%;max-width:430px;margin:0 auto;
+  height:100vh;
+  height:-webkit-fill-available;
+  display:flex;flex-direction:column;background:var(--bg);
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.header{background:var(--card);border-bottom:0.5px solid var(--border);padding:12px 16px 8px;flex-shrink:0}
+.header-row{display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:18px;font-weight:600;color:var(--text)}
+.header-btns{display:flex;gap:6px}
+.hbtn{padding:5px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);-webkit-appearance:none}
+.nav{display:flex;overflow-x:auto;gap:6px;padding:8px 16px;background:var(--card);border-bottom:0.5px solid var(--border);scrollbar-width:none;flex-shrink:0}
+.nav::-webkit-scrollbar{display:none}
+.nav-tab{flex-shrink:0;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:500;border:1.5px solid transparent;cursor:pointer;transition:all 0.2s;white-space:nowrap;user-select:none}
+.nav-tab.active{color:#fff}
+.nav-tab:not(.active){background:var(--bg);border-color:var(--border);color:var(--muted)}
+#suggest-area{flex-shrink:0}
+.main{display:flex;flex:1;overflow:hidden;min-height:0}
+.panel-products{width:52%;background:var(--card);border-left:0.5px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
+.panel-list{width:48%;background:var(--bg);overflow-y:auto;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
+.panel-header{padding:8px 12px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--card);z-index:2;flex-shrink:0}
+.panel-header span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.add-product-btn{width:26px;height:26px;border-radius:50%;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:300;-webkit-appearance:none}
+.product-item{display:flex;align-items:center;gap:7px;padding:9px 10px;border-bottom:0.5px solid var(--border);cursor:pointer;transition:background 0.15s;user-select:none}
+.product-item:active{background:var(--bg)}
+.product-emoji{font-size:24px;width:34px;text-align:center;flex-shrink:0}
+.product-name{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.product-hint{font-size:10px;color:var(--muted)}
+.drag-handle{color:var(--muted);font-size:11px;opacity:0.4}
+.remove-product-btn{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-appearance:none}
+.list-header{padding:8px 12px;border-bottom:0.5px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:2;flex-shrink:0}
+.list-header-top{display:flex;justify-content:space-between;align-items:center}
+.list-header span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.list-count{font-size:11px;color:var(--muted);margin-top:2px}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;background:var(--green);transition:width 0.4s ease}
+.drop-zone{flex:1;padding:6px;min-height:150px}
+.drop-zone.drag-over{background:rgba(29,158,117,0.06);border-radius:8px}
+.empty-list{text-align:center;padding:30px 10px;color:var(--muted)}
+.empty-list .arrow{font-size:24px;margin-bottom:6px}
+.empty-list p{font-size:11px;line-height:1.6}
+.list-item{background:var(--card);border-radius:10px;border:0.5px solid var(--border);padding:7px 8px;margin-bottom:5px;display:flex;align-items:center;gap:5px;animation:slideIn 0.2s ease;transition:opacity 0.3s}
+.list-item.checked{opacity:0.45;border-color:var(--green)}
+.list-item.checked .list-item-name{text-decoration:line-through;color:var(--muted)}
+@keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+.check-btn{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;font-size:14px;-webkit-appearance:none}
+.check-btn.done{background:var(--green);border-color:var(--green);color:#fff}
+.list-item-emoji{font-size:18px;width:24px;text-align:center;flex-shrink:0}
+.list-item-info{flex:1;min-width:0}
+.list-item-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qty-input{width:36px;border:1px solid var(--border);border-radius:6px;padding:3px 2px;font-size:12px;text-align:center;background:var(--bg);color:var(--text);-webkit-appearance:none}
+.qty-input:focus{outline:none;border-color:var(--green)}
+.remove-btn{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:#E24B4A;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;-webkit-appearance:none}
+.clear-btn{font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;-webkit-appearance:none}
+.drag-ghost{position:fixed;pointer-events:none;z-index:1000;opacity:0.9;background:var(--card);border-radius:10px;border:1.5px solid var(--green);padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,0.12)}
+.modal-wrap{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:430px}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:12px;color:var(--text)}
+.modal input[type=text]{width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--bg);color:var(--text);margin-bottom:10px;direction:rtl;-webkit-appearance:none}
+.modal input:focus{outline:none;border-color:var(--green)}
+.emoji-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.emoji-opt{font-size:22px;cursor:pointer;padding:4px 6px;border-radius:8px;border:2px solid transparent;user-select:none}
+.emoji-opt.sel{border-color:var(--green);background:var(--green-l)}
+.modal-btns{display:flex;gap:8px}
+.modal-btns button{flex:1;padding:12px;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;border:none;-webkit-appearance:none}
+.btn-cancel{background:var(--bg);color:var(--muted)}
+.btn-add{color:#fff}
+.suggest-banner{background:var(--green-l);border-bottom:0.5px solid rgba(29,158,117,0.25);padding:9px 14px;display:flex;align-items:center;gap:8px}
+.suggest-banner p{font-size:11px;color:var(--green-d);flex:1;line-height:1.5}
+.suggest-btn{font-size:11px;padding:6px 11px;border-radius:20px;background:var(--green);color:#fff;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;-webkit-appearance:none}
+.side-panel{background:var(--card);border-top:0.5px solid var(--border);flex-shrink:0;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.history-panel{padding:12px 16px}
+.history-panel h3{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
+.hist-card{background:var(--bg);border-radius:10px;border:0.5px solid var(--border);padding:8px 12px;margin-bottom:6px}
+.hist-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.hist-title{font-size:12px;font-weight:600;color:var(--text)}
+.hist-date{font-size:10px;color:var(--muted)}
+.hist-items{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.use-list-btn{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;-webkit-appearance:none}
+.finish-btn{width:100%;padding:11px;border-radius:10px;background:var(--green);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500;margin-top:8px;-webkit-appearance:none}
+.export-area{padding:12px 16px}
+.export-area h3{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
+.export-text{width:100%;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:12px;background:var(--bg);color:var(--text);direction:rtl;min-height:90px;resize:none;-webkit-appearance:none}
+.export-row{display:flex;gap:8px;margin-top:8px}
+.export-btn{flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);-webkit-appearance:none}
+.cat-label{font-size:10px;font-weight:600;color:var(--muted);margin:8px 0 4px;padding-right:0}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#2C2C2A;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:300;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="header">
+    <div class="header-row">
+      <h1>🛒 רשימות קניות</h1>
+      <div class="header-btns">
+        <button class="hbtn" id="hist-btn" onclick="togglePanel('history')">📋 היסטוריה</button>
+        <button class="hbtn" id="exp-btn" onclick="togglePanel('export')">📤 ייצוא</button>
+      </div>
+    </div>
+  </div>
+  <div class="nav" id="nav"></div>
+  <div id="suggest-area"></div>
+  <div class="main">
+    <div class="panel-list">
+      <div class="list-header">
+        <div class="list-header-top">
+          <span>הרשימה שלי</span>
+          <div style="display:flex;gap:4px;align-items:center">
+            <span class="list-count" id="list-count">0 פריטים</span>
+            <button class="clear-btn" onclick="clearChecked()">נקה סומנים</button>
+          </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <div class="empty-list" id="empty-msg">
+          <div class="arrow">←</div>
+          <p>לחץ על מוצר<br>להוסיף לרשימה</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel-products" id="panel-products">
+      <div class="panel-header">
+        <span id="panel-title">מוצרים</span>
+        <button class="add-product-btn" id="add-btn">+</button>
+      </div>
+      <div id="product-list"></div>
+    </div>
+  </div>
+  <div class="side-panel" id="side-panel" style="display:none"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CATS=[
+  {id:'super-complete',label:'סופר – השלמה',icon:'🧴',color:'#1D9E75',
+   products:[{e:'🥛',n:'חלב'},{e:'🍞',n:'לחם'},{e:'🧀',n:'גבינה צהובה'},{e:'🥚',n:'ביצים'},{e:'🧅',n:'בצל'},{e:'🍋',n:'לימון'},{e:'🧈',n:'חמאה'},{e:'🍶',n:'שמן זית'},{e:'🫙',n:'רסק עגבניות'},{e:'🧃',n:'מיץ'},{e:'☕',n:'קפה'},{e:'🍚',n:'אורז'}]},
+  {id:'super-big',label:'סופר – קניה גדולה',icon:'🛒',color:'#0F6E56',
+   products:[{e:'🍗',n:'עוף'},{e:'🥩',n:'בשר'},{e:'🐟',n:'דג'},{e:'🥗',n:'ירקות מעורב'},{e:'🍅',n:'עגבניות'},{e:'🥒',n:'מלפפון'},{e:'🧻',n:'נייר טואלט'},{e:'🧼',n:'סבון'},{e:'🫧',n:'אבקת כביסה'},{e:'🍪',n:'עוגיות'},{e:'🥜',n:'טחינה'},{e:'🫒',n:'זיתים'},{e:'🧆',n:'חומוס'},{e:'🥫',n:'שימורים'},{e:'🍿',n:'פופקורן'}]},
+  {id:'bbq',label:'על האש',icon:'🔥',color:'#993C1D',
+   products:[{e:'🥩',n:'סטייק'},{e:'🌭',n:'נקניקיות'},{e:'🍗',n:'כנפיים'},{e:'🌽',n:'תירס'},{e:'🧅',n:'בצל לגריל'},{e:'🍆',n:'חציל'},{e:'🍄',n:'פטריות'},{e:'🧄',n:'שום'},{e:'🫙',n:'רוטב ברביקיו'},{e:'🥖',n:'פיתות'},{e:'🥗',n:'סלט קצוץ'},{e:'🧂',n:'תבלינים'}]},
+  {id:'beach',label:'ים',icon:'🏖️',color:'#185FA5',
+   products:[{e:'🧴',n:'קרם שמש'},{e:'💧',n:'מים מינרל'},{e:'🥤',n:'שתייה קלה'},{e:'🍉',n:'אבטיח'},{e:'🍇',n:'ענבים'},{e:'🥪',n:'כריכים'},{e:'🍫',n:'שוקולד'},{e:'🥜',n:'בוטנים'},{e:'🍦',n:'גלידה'},{e:'🎪',n:'מחצלת'}]},
+  {id:'birthday',label:'יום הולדת',icon:'🎂',color:'#534AB7',
+   products:[{e:'🎂',n:'עוגה'},{e:'🕯️',n:'נרות'},{e:'🎈',n:'בלונים'},{e:'🧁',n:'קאפקייקס'},{e:'🍭',n:'ממתקים'},{e:'🥂',n:'שתייה חגיגית'},{e:'🎁',n:'ניילון מתנה'},{e:'🎉',n:'מפזרת'},{e:'🧃',n:'מיצים לילדים'},{e:'🍕',n:'פיצה'}]},
+  {id:'picnic',label:'פיקניק',icon:'🧺',color:'#BA7517',
+   products:[{e:'🥪',n:'כריכים'},{e:'🍇',n:'פירות'},{e:'🧀',n:'גבינות'},{e:'🥖',n:'לחמניות'},{e:'🫙',n:'ריבה'},{e:'🥒',n:'ירקות חתוכים'},{e:'🍫',n:'שוקולד'},{e:'🧃',n:'מיצים'},{e:'☕',n:'תרמוס קפה'},{e:'🍪',n:'עוגיות'},{e:'💧',n:'מים'}]}
+];
+
+let activeCat='super-complete',shoppingList={},dragItem=null,dragGhost=null,touchProduct=null,activePanel=null,selEmoji='🛍️';
+
+function getCat(){return CATS.find(c=>c.id===activeCat)}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function getUserProducts(id){return load('extra_'+id,[])}
+function saveUserProduct(id,p){const a=getUserProducts(id);a.push(p);store('extra_'+id,a)}
+function deleteUserProduct(id,n){store('extra_'+id,getUserProducts(id).filter(p=>p.n!==n))}
+function getAllProducts(id){const cat=CATS.find(c=>c.id===id);return[...(cat?.products||[]),...getUserProducts(id)]}
+function getHistory(){return load('shop_history',[])}
+function saveToHistory(catId,items){
+  if(!items.length)return;
+  const cat=CATS.find(c=>c.id===catId);
+  const hist=getHistory();
+  hist.unshift({catId,catLabel:cat?.label||catId,date:new Date().toLocaleDateString('he-IL'),items:[...items]});
+  store('shop_history',hist.slice(0,20));
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+function renderNav(){
+  const nav=document.getElementById('nav');nav.innerHTML='';
+  CATS.forEach(cat=>{
+    const tab=document.createElement('div');tab.className='nav-tab'+(cat.id===activeCat?' active':'');
+    if(cat.id===activeCat)tab.style.background=cat.color;
+    tab.textContent=cat.icon+' '+cat.label;
+    tab.onclick=()=>{activeCat=cat.id;shoppingList={};activePanel=null;document.getElementById('side-panel').style.display='none';render()};
+    nav.appendChild(tab);
+  });
+}
+
+function renderSuggest(){
+  const area=document.getElementById('suggest-area');
+  const hist=getHistory().filter(h=>h.catId===activeCat);
+  if(!hist.length){area.innerHTML='';return}
+  const last=hist[0];
+  area.innerHTML=`<div class="suggest-banner"><p>📊 בפעם הקודמת קנית ${last.items.length} פריטים ב${last.catLabel} (${last.date})</p><button class="suggest-btn" id="load-hist-btn">טען →</button></div>`;
+  document.getElementById('load-hist-btn').onclick=()=>loadFromHistory(last.items);
+}
+
+function loadFromHistory(items){
+  shoppingList={};
+  items.forEach(item=>{shoppingList[item.n]={...item,qty:item.qty||'1',checked:false}});
+  renderList();showToast('✅ הרשימה נטענה!');
+}
+
+function renderProducts(){
+  const cat=getCat();
+  document.getElementById('panel-title').textContent=cat.label;
+  const addBtn=document.getElementById('add-btn');
+  addBtn.style.background=cat.color+'22';addBtn.style.color=cat.color;
+  const list=document.getElementById('product-list');list.innerHTML='';
+  const userNames=getUserProducts(cat.id).map(p=>p.n);
+  getAllProducts(cat.id).forEach(p=>{
+    const div=document.createElement('div');div.className='product-item';
+    const isUser=userNames.includes(p.n);
+    div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">לחץ להוסיף</div></div>${isUser?`<button class="remove-product-btn" data-n="${p.n}">×</button>`:''}`;
+    div.addEventListener('click',()=>addToList(p));
+    div.addEventListener('dragstart',ev=>{dragItem=p;ev.dataTransfer.effectAllowed='copy';createGhost(p,ev.clientX,ev.clientY)});
+    div.setAttribute('draggable','true');
+    div.addEventListener('dragend',()=>{removeGhost();dragItem=null});
+    div.addEventListener('touchstart',ev=>touchStart(ev,p),{passive:true});
+    const rb=div.querySelector('.remove-product-btn');
+    if(rb)rb.onclick=e=>{e.stopPropagation();deleteUserProduct(cat.id,p.n);renderProducts()};
+    list.appendChild(div);
+  });
+}
+
+function updateProgress(){
+  const items=Object.values(shoppingList);
+  const checked=items.filter(i=>i.checked).length;
+  const pct=items.length?Math.round(checked/items.length*100):0;
+  document.getElementById('progress').style.width=pct+'%';
+  document.getElementById('list-count').textContent=`${checked}/${items.length} פריטים`;
+}
+
+function renderList(){
+  const zone=document.getElementById('drop-zone');
+  const emptyMsg=document.getElementById('empty-msg');
+  zone.querySelectorAll('.list-item').forEach(el=>el.remove());
+  const items=Object.values(shoppingList);
+  if(!items.length){emptyMsg.style.display='block';updateProgress();return}
+  emptyMsg.style.display='none';
+  [...items.filter(i=>!i.checked),...items.filter(i=>i.checked)].forEach(item=>{
+    const div=document.createElement('div');div.className='list-item'+(item.checked?' checked':'');
+    div.innerHTML=`<button class="check-btn${item.checked?' done':''}">${item.checked?'✓':''}</button><span class="list-item-emoji">${item.e}</span><div class="list-item-info"><div class="list-item-name">${item.n}</div></div><input class="qty-input" type="tel" value="${item.qty||'1'}" placeholder="כמות"><button class="remove-btn">×</button>`;
+    div.querySelector('.check-btn').onclick=()=>{shoppingList[item.n].checked=!shoppingList[item.n].checked;renderList()};
+    div.querySelector('.qty-input').oninput=e=>{if(shoppingList[item.n])shoppingList[item.n].qty=e.target.value};
+    div.querySelector('.remove-btn').onclick=()=>{delete shoppingList[item.n];renderList()};
+    zone.appendChild(div);
+  });
+  updateProgress();
+}
+
+function clearChecked(){
+  Object.keys(shoppingList).forEach(k=>{if(shoppingList[k].checked)delete shoppingList[k]});
+  renderList();showToast('🧹 פריטים שסומנו הוסרו');
+}
+
+function addToList(p){
+  if(!shoppingList[p.n]){shoppingList[p.n]={...p,qty:'1',checked:false};renderList();showToast('✅ '+p.n+' נוסף לרשימה')}
+  else{showToast('כבר ברשימה: '+p.n)}
+}
+
+function finishShopping(){
+  const items=Object.values(shoppingList);
+  if(!items.length){showToast('הרשימה ריקה');return}
+  saveToHistory(activeCat,items);
+  shoppingList={};renderList();renderSuggest();
+  document.getElementById('side-panel').style.display='none';activePanel=null;
+  showToast('✅ הקניה נשמרה!');
+}
+
+function togglePanel(type){
+  const sp=document.getElementById('side-panel');
+  if(activePanel===type){activePanel=null;sp.style.display='none';sp.innerHTML='';return}
+  activePanel=type;sp.style.display='block';
+  if(type==='history')renderHistoryPanel();
+  else renderExportPanel();
+}
+
+function renderHistoryPanel(){
+  const sp=document.getElementById('side-panel');
+  const hist=getHistory();
+  let html='<div class="history-panel"><h3>📋 היסטוריית קניות</h3>';
+  if(!hist.length){html+='<p style="font-size:12px;color:var(--muted)">עדיין אין היסטוריה.</p></div>';sp.innerHTML=html;return}
+  const grouped={};hist.forEach(h=>{if(!grouped[h.catId])grouped[h.catId]=[];grouped[h.catId].push(h)});
+  Object.entries(grouped).forEach(([catId,entries])=>{
+    const cat=CATS.find(c=>c.id===catId);
+    html+=`<div class="cat-label">${cat?.icon||''} ${cat?.label||catId}</div>`;
+    entries.slice(0,3).forEach((h,i)=>{
+      const names=h.items.map(i=>i.e+i.n).join(', ');
+      html+=`<div class="hist-card"><div class="hist-header"><span class="hist-title">${h.items.length} פריטים</span><span class="hist-date">${h.date}</span></div><div class="hist-items">${names}</div><button class="use-list-btn" data-idx="${i}" data-cat="${catId}">השתמש ברשימה →</button></div>`;
+    });
+  });
+  html+=`<button class="finish-btn" onclick="finishShopping()">✅ סיים קניה ושמור</button></div>`;
+  sp.innerHTML=html;
+  sp.querySelectorAll('.use-list-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const catId=btn.dataset.cat;const idx=parseInt(btn.dataset.idx);
+      const entries=getHistory().filter(h=>h.catId===catId);
+      if(entries[idx]){activeCat=catId;loadFromHistory(entries[idx].items);activePanel=null;sp.style.display='none';render()}
+    };
+  });
+}
+
+function renderExportPanel(){
+  const sp=document.getElementById('side-panel');
+  const items=Object.values(shoppingList);
+  const cat=getCat();
+  const text=items.length?`🛒 רשימת קניות – ${cat.label}\n${new Date().toLocaleDateString('he-IL')}\n\n${items.map(i=>`${i.e} ${i.n} × ${i.qty||'1'}`).join('\n')}`:'הרשימה ריקה';
+  sp.innerHTML=`<div class="export-area"><h3>📤 ייצוא רשימה</h3><textarea class="export-text" readonly>${text}</textarea><div class="export-row"><button class="export-btn" id="copy-btn">📋 העתק</button><button class="export-btn" id="wa-btn">💬 WhatsApp</button></div><button class="finish-btn" onclick="finishShopping()">✅ סיים קניה ושמור</button></div>`;
+  document.getElementById('copy-btn').onclick=()=>{
+    if(navigator.share){navigator.share({text})}
+    else if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>showToast('הועתק!'))}
+    else{const ta=sp.querySelector('textarea');ta.select();document.execCommand('copy');showToast('הועתק!')}
+  };
+  document.getElementById('wa-btn').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+}
+
+function createGhost(p,x,y){removeGhost();dragGhost=document.createElement('div');dragGhost.className='drag-ghost';dragGhost.innerHTML=`<span style="font-size:20px">${p.e}</span><span>${p.n}</span>`;dragGhost.style.cssText=`left:${x-60}px;top:${y-20}px`;document.body.appendChild(dragGhost)}
+function removeGhost(){if(dragGhost){dragGhost.remove();dragGhost=null}}
+
+document.addEventListener('dragover',e=>{e.preventDefault();if(dragGhost){dragGhost.style.left=(e.clientX-60)+'px';dragGhost.style.top=(e.clientY-20)+'px'}});
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(dragItem)addToList(dragItem);removeGhost()});
+
+function touchStart(e,p){
+  touchProduct=p;createGhost(p,e.touches[0].clientX,e.touches[0].clientY);
+  document.addEventListener('touchmove',onTM,{passive:false});
+  document.addEventListener('touchend',onTE,{once:true});
+}
+function onTM(e){
+  e.preventDefault();const t=e.touches[0];
+  if(dragGhost){dragGhost.style.left=(t.clientX-60)+'px';dragGhost.style.top=(t.clientY-20)+'px'}
+  const r=dz.getBoundingClientRect();
+  dz.classList.toggle('drag-over',t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom);
+}
+function onTE(e){
+  document.removeEventListener('touchmove',onTM);
+  const t=e.changedTouches[0];const r=dz.getBoundingClientRect();
+  if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom&&touchProduct)addToList(touchProduct);
+  dz.classList.remove('drag-over');removeGhost();touchProduct=null;
+}
+
+const EMOJIS=['🍎','🥦','🥕','🧅','🧄','🍋','🍌','🍇','🥑','🥩','🐟','🧀','🥚','🧈','🥛','🍞','🫙','🧂','🫒','🍫','🧃','💧','🧹','🧼','🧻','🛒','🌿','🍄','🌽','🥜','🍕','🥐','🍳','🥞','🧆','🥗','🍜','🥤'];
+
+document.getElementById('add-btn').onclick=()=>{
+  const cat=getCat();selEmoji=cat.icon;
+  const overlay=document.createElement('div');overlay.className='modal-wrap';
+  overlay.innerHTML=`<div class="modal"><h3>הוסף מוצר ל${cat.label}</h3><div class="emoji-row">${EMOJIS.map(em=>`<span class="emoji-opt${em===selEmoji?' sel':''}" data-e="${em}">${em}</span>`).join('')}</div><input type="text" id="np" placeholder="שם המוצר..." autocomplete="off"><div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף</button></div></div>`;
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
+  overlay.querySelectorAll('.emoji-opt').forEach(el=>el.onclick=()=>{selEmoji=el.dataset.e;overlay.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel')});
+  overlay.querySelector('#mc').onclick=()=>overlay.remove();
+  overlay.querySelector('#ma').onclick=()=>{
+    const name=overlay.querySelector('#np').value.trim();
+    if(!name)return;
+    saveUserProduct(activeCat,{e:selEmoji,n:name});
+    overlay.remove();renderProducts();showToast('✅ '+name+' נוסף לרשימה');
+  };
+  document.body.appendChild(overlay);
+  setTimeout(()=>overlay.querySelector('#np').focus(),150);
+};
+
+function render(){renderNav();renderSuggest();renderProducts();renderList()}
+render();
+</script>
+</body>
+</html>
