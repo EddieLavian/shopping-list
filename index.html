@@ -152,6 +152,11 @@ body{font-family:-apple-system,'Heebo',sans-serif;direction:rtl;background:var(-
 .recipe-actions{display:flex;gap:6px;padding:0 10px 8px;flex-shrink:0}
 .recipe-add-all{flex:1;padding:7px;border-radius:8px;background:var(--green);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:500;-webkit-appearance:none}
 .recipe-delete{padding:7px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--border);color:#E24B4A;cursor:pointer;font-size:12px;-webkit-appearance:none}
+.yt-paste{width:100%;border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:13px;background:var(--bg);color:var(--text);resize:none;font-family:inherit;direction:rtl;-webkit-appearance:none;display:block}
+.yt-paste:focus{outline:none;border-color:var(--purple)}
+.recipe-subgroup{font-size:10px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:0.4px;padding:8px 6px 3px;display:flex;align-items:center;gap:5px}
+.recipe-subgroup a{color:var(--orange);text-decoration:none;font-size:10px}
+.recipe-subgroup-divider{height:0.5px;background:rgba(192,86,33,0.2);margin:0 6px 4px}
 
 /* Ingredients list inside card */
 .recipe-ingredients{border-top:0.5px solid var(--border)}
@@ -273,21 +278,11 @@ function renderNav(){
 }
 
 /* ═══════════════════════════════════════════════
-   SUGGEST BANNER
+   SUGGEST BANNER — removed
 ═══════════════════════════════════════════════ */
 function renderSuggest(){
   const area=document.getElementById('suggest-area');
-  if(activeCat==='recipes'){area.innerHTML='';return}
-  const hist=getHistory().filter(h=>h.catId===activeCat);
-  if(!hist.length){area.innerHTML='';return}
-  const last=hist[0];
-  area.innerHTML=`<div class="suggest-banner"><p>📊 בפעם הקודמת קנית ${last.items.length} פריטים ב${last.catLabel} (${last.date})</p><button class="suggest-btn" id="load-hist-btn">טען →</button></div>`;
-  document.getElementById('load-hist-btn').onclick=()=>loadFromHistory(last.items);
-}
-function loadFromHistory(items){
-  shoppingList={};
-  items.forEach(item=>{shoppingList[item.n]={...item,qty:item.qty||'1',checked:false}});
-  renderList();showToast('✅ הרשימה נטענה!');
+  if(area)area.innerHTML='';
 }
 
 /* ═══════════════════════════════════════════════
@@ -373,19 +368,42 @@ function renderList(){
   const zone=document.getElementById('drop-zone');
   if(!zone)return;
   const emptyMsg=document.getElementById('empty-msg');
-  zone.querySelectorAll('.list-item').forEach(el=>el.remove());
-  const items=Object.values(shoppingList());
+  zone.querySelectorAll('.list-item,.recipe-subgroup,.recipe-subgroup-divider').forEach(el=>el.remove());
+  const sl=shoppingList();const items=Object.values(sl);
   if(!items.length){if(emptyMsg)emptyMsg.style.display='block';updateProgress();return}
   if(emptyMsg)emptyMsg.style.display='none';
-  const sl=shoppingList();
-  [...items.filter(i=>!i.checked),...items.filter(i=>i.checked)].forEach(item=>{
-    const div=document.createElement('div');div.className='list-item'+(item.checked?' checked':'');
-    div.innerHTML=`<button class="check-btn${item.checked?' done':''}">${item.checked?'✓':''}</button><span class="list-item-emoji">${item.e}</span><div class="list-item-info"><div class="list-item-name">${item.n}</div>${item.source?`<span class="item-source">🍳 ${item.source}</span>`:''}</div><input class="qty-input" type="tel" value="${item.qty||'1'}" placeholder="כמות"><button class="remove-btn">×</button>`;
-    div.querySelector('.check-btn').onclick=()=>{sl[item.n].checked=!sl[item.n].checked;persistList();renderList()};
-    div.querySelector('.qty-input').oninput=e=>{if(sl[item.n]){sl[item.n].qty=e.target.value;persistList()}};
-    div.querySelector('.remove-btn').onclick=()=>{delete sl[item.n];persistList();renderList()};
-    zone.appendChild(div);
+
+  // Separate recipe items and regular items
+  const recipeGroups={};
+  const regularItems=[];
+  items.forEach(item=>{
+    if(item.recipeId){
+      if(!recipeGroups[item.recipeId])recipeGroups[item.recipeId]={title:item.source||'מתכון',items:[]};
+      recipeGroups[item.recipeId].items.push(item);
+    } else regularItems.push(item);
   });
+
+  const renderItem=(item)=>{
+    const key=item.recipeId?item.n+'__'+item.recipeId:item.n;
+    const div=document.createElement('div');div.className='list-item'+(item.checked?' checked':'');
+    div.innerHTML=`<button class="check-btn${item.checked?' done':''}">${item.checked?'✓':''}</button><span class="list-item-emoji">${item.e}</span><div class="list-item-info"><div class="list-item-name">${item.n}</div></div><input class="qty-input" type="tel" value="${item.qty||'1'}" placeholder="כמות"><button class="remove-btn">×</button>`;
+    div.querySelector('.check-btn').onclick=()=>{if(sl[key]){sl[key].checked=!sl[key].checked;persistList();renderList()}};
+    div.querySelector('.qty-input').oninput=e=>{if(sl[key]){sl[key].qty=e.target.value;persistList()}};
+    div.querySelector('.remove-btn').onclick=()=>{delete sl[key];persistList();renderList()};
+    zone.appendChild(div);
+  };
+
+  [...regularItems.filter(i=>!i.checked),...regularItems.filter(i=>i.checked)].forEach(renderItem);
+
+  Object.entries(recipeGroups).forEach(([recipeId,group])=>{
+    const recipe=getRecipes().find(r=>r.id===recipeId);
+    const label=document.createElement('div');label.className='recipe-subgroup';
+    label.innerHTML=`🍳 ${group.title}${recipe?.url?` <a href="${recipe.url}" target="_blank" onclick="event.stopPropagation()">🔗</a>`:''}`;
+    zone.appendChild(label);
+    const divider=document.createElement('div');divider.className='recipe-subgroup-divider';zone.appendChild(divider);
+    [...group.items.filter(i=>!i.checked),...group.items.filter(i=>i.checked)].forEach(renderItem);
+  });
+
   updateProgress();
 }
 
@@ -425,27 +443,35 @@ function bindDrop(){
 ═══════════════════════════════════════════════ */
 function buildRecipesPanel(){
   const wrapper=document.createElement('div');
-  wrapper.className='recipes-full';
-  wrapper.style.width='100%';
+  wrapper.className='recipes-full';wrapper.style.width='100%';
 
-  // URL input bar
+  // Input bar — URL or paste text
   const bar=document.createElement('div');bar.className='recipe-input-bar';
-  bar.innerHTML=`<div class="recipe-input-row"><input class="yt-input" id="yt-url" type="url" placeholder="הדבק קישור YouTube של מתכון..." autocomplete="off" autocorrect="off" spellcheck="false"><button class="analyze-btn" id="analyze-btn">🎬 נתח</button></div>`;
+  bar.innerHTML=`
+    <div class="recipe-input-row" style="margin-bottom:6px">
+      <input class="yt-input" id="yt-url" type="url" placeholder="קישור YouTube / Instagram..." autocomplete="off" spellcheck="false">
+      <button class="analyze-btn" id="analyze-btn">🎬 נתח</button>
+    </div>
+    <div style="position:relative">
+      <textarea class="yt-paste" id="paste-text" placeholder="— או — הדבק כאן טקסט עם מרכיבים (מאינסטגרם, בלוג וכו')..." rows="3"></textarea>
+      <div style="display:flex;gap:6px;margin-top:5px">
+        <input class="yt-input" id="paste-title" type="text" placeholder="שם המתכון..." style="flex:1;font-size:13px;padding:6px 10px">
+        <button class="analyze-btn" id="paste-btn" style="background:var(--purple)">📋 חלץ</button>
+      </div>
+    </div>`;
   wrapper.appendChild(bar);
 
-  // Analyzing indicator (hidden)
   const analyzing=document.createElement('div');
   analyzing.className='analyzing-bar';analyzing.id='analyzing-bar';analyzing.style.display='none';
-  analyzing.innerHTML=`<div class="spinner"></div><span id="analyzing-txt">מנתח את הסרטון...</span>`;
+  analyzing.innerHTML=`<div class="spinner"></div><span id="analyzing-txt">מנתח...</span>`;
   wrapper.appendChild(analyzing);
 
-  // Recipes scroll area
   const scroll=document.createElement('div');scroll.className='recipes-scroll';scroll.id='recipes-scroll';
   wrapper.appendChild(scroll);
 
-  // Bind analyze button
   bar.querySelector('#analyze-btn').onclick=()=>analyzeYouTube();
   bar.querySelector('#yt-url').addEventListener('keydown',e=>{if(e.key==='Enter')analyzeYouTube()});
+  bar.querySelector('#paste-btn').onclick=()=>analyzeFromText();
 
   renderRecipesList(scroll);
   return wrapper;
@@ -457,12 +483,10 @@ function renderRecipesList(container){
   container.innerHTML='';
   const recipes=getRecipes();
   if(!recipes.length){
-    container.innerHTML=`<div class="empty-recipes"><div class="big-icon">🎬</div><h3>אין מתכונים עדיין</h3><p>הדבק קישור YouTube של מתכון<br>והאפליקציה תחלץ את המרכיבים אוטומטית</p></div>`;
+    container.innerHTML=`<div class="empty-recipes"><div class="big-icon">🎬</div><h3>אין מתכונים עדיין</h3><p>הדבק קישור YouTube או טקסט מאינסטגרם<br>והאפליקציה תחלץ את המרכיבים</p></div>`;
     return;
   }
-  recipes.forEach(recipe=>{
-    container.appendChild(buildRecipeCard(recipe));
-  });
+  recipes.forEach(r=>container.appendChild(buildRecipeCard(r)));
 }
 
 function buildRecipeCard(recipe){
@@ -472,32 +496,34 @@ function buildRecipeCard(recipe){
 
   const card=document.createElement('div');card.className='recipe-card';card.id='rcard-'+recipe.id;
 
-  // Header
+  // Header with source link
   const header=document.createElement('div');header.className='recipe-card-header';
   header.innerHTML=`
     <div class="recipe-thumb-placeholder">🍳</div>
     <div class="recipe-info">
       <div class="recipe-title">${recipe.title}</div>
-      <div class="recipe-meta">${recipe.ingredients.length} מרכיבים · ${recipe.date}</div>
+      <div class="recipe-meta">${recipe.ingredients.length} מרכיבים · ${recipe.date}${recipe.url?` · <a href="${recipe.url}" target="_blank" style="color:var(--orange);text-decoration:none" onclick="event.stopPropagation()">🔗 מקור</a>`:''}</div>
     </div>
     <span class="recipe-chevron${isOpen?' open':''}">▾</span>`;
   header.onclick=()=>toggleRecipeExpand(recipe.id);
 
-  // Actions row
+  // Actions
   const actions=document.createElement('div');actions.className='recipe-actions';
-  actions.innerHTML=`<button class="recipe-add-all">+ הוסף הכל לרשימה</button><button class="recipe-delete">🗑 מחק</button>`;
+  actions.innerHTML=`
+    <button class="recipe-add-all">+ הוסף הכל לסל</button>
+    <button class="recipe-add-selected-top" style="flex:1;padding:7px;border-radius:8px;background:var(--purple-l);color:var(--purple);border:1px solid rgba(83,74,183,0.2);cursor:pointer;font-size:12px;font-weight:500">☑ נבחרים</button>
+    <button class="recipe-delete">🗑</button>`;
   actions.querySelector('.recipe-add-all').onclick=e=>{e.stopPropagation();addAllIngredients(recipe)};
+  actions.querySelector('.recipe-add-selected-top').onclick=e=>{e.stopPropagation();addSelectedIngredients(recipe,sel)};
   actions.querySelector('.recipe-delete').onclick=e=>{e.stopPropagation();deleteRecipe(recipe.id);renderRecipesList();showToast('🗑 מתכון נמחק')};
 
-  card.appendChild(header);
-  card.appendChild(actions);
+  card.appendChild(header);card.appendChild(actions);
 
-  // Ingredients (collapsible)
+  // Ingredients
   if(isOpen){
     const ingList=document.createElement('div');ingList.className='recipe-ingredients';
     recipe.ingredients.forEach((ing,idx)=>{
-      const row=document.createElement('div');
-      row.className='ingredient-row'+(sel.has(idx)?' selected':'');
+      const row=document.createElement('div');row.className='ingredient-row'+(sel.has(idx)?' selected':'');
       row.innerHTML=`<div class="ing-check">${sel.has(idx)?'✓':''}</div><span class="ing-emoji">${ing.e||'🥄'}</span><span class="ing-name">${ing.n}</span><span class="ing-qty">${ing.qty||''}</span>`;
       row.onclick=()=>{
         if(sel.has(idx))sel.delete(idx);else sel.add(idx);
@@ -507,23 +533,18 @@ function buildRecipeCard(recipe){
       };
       ingList.appendChild(row);
     });
-
-    const addSelBtn=document.createElement('button');
-    addSelBtn.className='recipe-add-selected';
-    addSelBtn.id='add-sel-'+recipe.id;
-    addSelBtn.disabled=sel.size===0;
-    addSelBtn.textContent=`הוסף ${sel.size} נבחרים לרשימה`;
-    addSelBtn.onclick=()=>addSelectedIngredients(recipe,sel);
-    ingList.appendChild(addSelBtn);
+    const sb=document.createElement('button');sb.className='recipe-add-selected';sb.id='add-sel-'+recipe.id;
+    sb.disabled=sel.size===0;sb.textContent=`הוסף ${sel.size} נבחרים לסל`;
+    sb.onclick=()=>addSelectedIngredients(recipe,sel);
+    ingList.appendChild(sb);
     card.appendChild(ingList);
   }
-
   return card;
 }
 
 function updateAddSelectedBtn(recipeId,sel){
   const btn=document.getElementById('add-sel-'+recipeId);
-  if(btn){btn.disabled=sel.size===0;btn.textContent=`הוסף ${sel.size} נבחרים לרשימה`}
+  if(btn){btn.disabled=sel.size===0;btn.textContent=`הוסף ${sel.size} נבחרים לסל`}
 }
 
 function toggleRecipeExpand(id){
@@ -531,28 +552,53 @@ function toggleRecipeExpand(id){
   renderRecipesList();
 }
 
+// Add ingredients as a sub-group inside super-big list
 function addAllIngredients(recipe){
-  activeCat='super-complete';
-  recipe.ingredients.forEach(ing=>{
-    addToList({e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1'},recipe.title,true);
-  });
-  persistList();render();
-  showToast('✅ כל המרכיבים נוספו לרשימה!');
+  addIngredientsToSuperBig(recipe,recipe.ingredients);
 }
 
 function addSelectedIngredients(recipe,sel){
-  activeCat='super-complete';
-  recipe.ingredients.forEach((ing,idx)=>{
-    if(sel.has(idx))addToList({e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1'},recipe.title,true);
-  });
-  persistList();render();
-  showToast(`✅ ${sel.size} מרכיבים נוספו לרשימה!`);
+  const toAdd=recipe.ingredients.filter((_,idx)=>sel.has(idx));
+  addIngredientsToSuperBig(recipe,toAdd);
 }
 
-/* ═══════════════════════════════════════════════
-   YOUTUBE RECIPE EXTRACTOR — YouTube Data API v3
-   הכנס את ה-key שלך בשורה הבאה:
-═══════════════════════════════════════════════ */
+function addIngredientsToSuperBig(recipe,ingredients){
+  if(!ingredients.length){showToast('לא נבחרו מרכיבים');return}
+  // Save to super-big with recipe name as sub-group key
+  if(!allLists['super-big'])allLists['super-big']={};
+  const sl=allLists['super-big'];
+  ingredients.forEach(ing=>{
+    // Use unique key: ingredient name + recipe (to avoid collisions across recipes)
+    const key=ing.n+'__'+recipe.id;
+    sl[key]={e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1',checked:false,source:recipe.title,recipeId:recipe.id};
+  });
+  persistList();
+  // Switch to super-big to show result
+  activeCat='super-big';render();
+  showToast('✅ '+ingredients.length+' מרכיבים נוספו לסופר – קניה גדולה');
+}
+
+function analyzeFromText(){
+  const textArea=document.getElementById('paste-text');
+  const titleInput=document.getElementById('paste-title');
+  const text=(textArea?.value||'').trim();
+  const title=(titleInput?.value||'').trim()||'מתכון מהדבקה';
+  if(!text){showToast('נא להדביק טקסט עם מרכיבים');return}
+  const rawIngredients=parseIngredientsFromText(text);
+  // If section-based parsing failed, try every non-empty line
+  const lines=rawIngredients.length>=2?rawIngredients:
+    text.split(/\r?\n/).map(l=>l.replace(/^[-–•*✓✔►▪◦·]\s*/,'').trim()).filter(l=>l.length>2&&l.length<100);
+  if(!lines.length){showToast('לא נמצאו מרכיבים בטקסט');return}
+  const ingredients=lines.slice(0,20).map(line=>({n:line,e:ingredientToEmoji(line),qty:''}));
+  const recipe={id:'r'+Date.now(),title,url:'',date:new Date().toLocaleDateString('he-IL'),ingredients};
+  saveRecipe(recipe);
+  if(textArea)textArea.value='';
+  if(titleInput)titleInput.value='';
+  expandedRecipes[recipe.id]=true;
+  selectedIngredients[recipe.id]=new Set(recipe.ingredients.map((_,i)=>i));
+  renderRecipesList();
+  showToast('✅ '+title+' – '+ingredients.length+' מרכיבים');
+}
 const YT_KEY='AIzaSyBfaI3emhZoKpr_KBQhLbSPbI-AHVs3i0E';
 
 function extractYouTubeId(url){
@@ -725,7 +771,7 @@ function renderHistoryPanel(){
       html+=`<div class="hist-card"><div class="hist-header"><span class="hist-title">${h.items.length} פריטים</span><span class="hist-date">${h.date}</span></div><div class="hist-items">${names}</div><button class="use-list-btn" data-idx="${i}" data-cat="${catId}">השתמש ברשימה →</button></div>`;
     });
   });
-  html+=`<button class="finish-btn" onclick="finishShopping()">✅ סיים קניה ושמור</button></div>`;
+  html+=`</div>`;
   sp.innerHTML=html;
   sp.querySelectorAll('.use-list-btn').forEach(btn=>{
     btn.onclick=()=>{
@@ -740,14 +786,28 @@ function renderExportPanel(){
   const sp=document.getElementById('side-panel');
   const items=Object.values(shoppingList());
   const cat=getCat();
-  const text=items.length?`🛒 רשימת קניות – ${cat.label}\n${new Date().toLocaleDateString('he-IL')}\n\n${items.map(i=>`${i.e} ${i.n} × ${i.qty||'1'}${i.source?' ('+i.source+')':''}`).join('\n')}`:'הרשימה ריקה';
-  sp.innerHTML=`<div class="export-area"><h3>📤 ייצוא רשימה</h3><textarea class="export-text" readonly>${text}</textarea><div class="export-row"><button class="export-btn" id="copy-btn">📋 העתק</button><button class="export-btn" id="wa-btn">💬 WhatsApp</button></div><button class="finish-btn" onclick="finishShopping()">✅ סיים קניה ושמור</button></div>`;
-  document.getElementById('copy-btn').onclick=()=>{
-    if(navigator.share)navigator.share({text});
-    else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>showToast('הועתק!'));
-    else{sp.querySelector('textarea').select();document.execCommand('copy');showToast('הועתק!')}
+  const text=items.length
+    ?`🛒 רשימת קניות – ${cat.label}\n${new Date().toLocaleDateString('he-IL')}\n\n${items.map(i=>`${i.e} ${i.n}${i.qty&&i.qty!=='1'?' × '+i.qty:''}${i.source?' ('+i.source+')':''}`).join('\n')}`
+    :'הרשימה ריקה';
+  sp.innerHTML=`
+    <div class="export-area">
+      <h3>📤 שתף רשימה</h3>
+      <div class="export-row">
+        <button class="export-btn" id="wa-btn">💬 WhatsApp</button>
+        <button class="export-btn" id="copy-btn">📋 העתק</button>
+        <button class="export-btn" id="save-btn" style="color:var(--green);border-color:var(--green)">✅ שמור בהיסטוריה</button>
+      </div>
+    </div>`;
+  sp.querySelector('#wa-btn').onclick=()=>{
+    if(!items.length){showToast('הרשימה ריקה');return}
+    window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
   };
-  document.getElementById('wa-btn').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+  sp.querySelector('#copy-btn').onclick=()=>{
+    if(!items.length){showToast('הרשימה ריקה');return}
+    if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>showToast('📋 הועתק!'));
+    else{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();showToast('📋 הועתק!')}
+  };
+  sp.querySelector('#save-btn').onclick=()=>finishShopping();
 }
 
 /* ═══════════════════════════════════════════════
