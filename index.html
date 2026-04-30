@@ -218,7 +218,8 @@ const CATS=[
 ];
 
 let activeCat='super-complete';
-let shoppingList={};
+let allLists=load('lists_by_cat',{});   // {catId: {itemName: item, ...}, ...}
+function shoppingList(){return allLists[activeCat]||(allLists[activeCat]={});}
 let dragItem=null,dragGhost=null,touchProduct=null;
 let activePanel=null;
 let selEmoji='🛍️';
@@ -266,7 +267,7 @@ function renderNav(){
     tab.className='nav-tab'+(cat.id===activeCat?' active':'');
     if(cat.id===activeCat)tab.style.background=cat.color;
     tab.textContent=cat.icon+' '+cat.label;
-    tab.onclick=()=>{activeCat=cat.id;shoppingList={};activePanel=null;document.getElementById('side-panel').style.display='none';render()};
+    tab.onclick=()=>{activeCat=cat.id;activePanel=null;document.getElementById('side-panel').style.display='none';render()};
     nav.appendChild(tab);
   });
 }
@@ -307,6 +308,7 @@ function render(){
             <div style="display:flex;gap:4px;align-items:center">
               <span class="list-count" id="list-count">0 פריטים</span>
               <button class="clear-btn" onclick="clearChecked()">נקה סומנים</button>
+              <button class="clear-btn" style="color:#E24B4A;border-color:rgba(226,75,74,0.3)" onclick="clearEntireList()">נקה הכל</button>
             </div>
           </div>
           <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
@@ -355,8 +357,10 @@ function renderProducts(){
 /* ═══════════════════════════════════════════════
    SHOPPING LIST
 ═══════════════════════════════════════════════ */
+function persistList(){store('lists_by_cat',allLists)}
+
 function updateProgress(){
-  const items=Object.values(shoppingList);
+  const items=Object.values(shoppingList());
   const checked=items.filter(i=>i.checked).length;
   const pct=items.length?Math.round(checked/items.length*100):0;
   const pEl=document.getElementById('progress');
@@ -370,32 +374,42 @@ function renderList(){
   if(!zone)return;
   const emptyMsg=document.getElementById('empty-msg');
   zone.querySelectorAll('.list-item').forEach(el=>el.remove());
-  const items=Object.values(shoppingList);
+  const items=Object.values(shoppingList());
   if(!items.length){if(emptyMsg)emptyMsg.style.display='block';updateProgress();return}
   if(emptyMsg)emptyMsg.style.display='none';
+  const sl=shoppingList();
   [...items.filter(i=>!i.checked),...items.filter(i=>i.checked)].forEach(item=>{
     const div=document.createElement('div');div.className='list-item'+(item.checked?' checked':'');
     div.innerHTML=`<button class="check-btn${item.checked?' done':''}">${item.checked?'✓':''}</button><span class="list-item-emoji">${item.e}</span><div class="list-item-info"><div class="list-item-name">${item.n}</div>${item.source?`<span class="item-source">🍳 ${item.source}</span>`:''}</div><input class="qty-input" type="tel" value="${item.qty||'1'}" placeholder="כמות"><button class="remove-btn">×</button>`;
-    div.querySelector('.check-btn').onclick=()=>{shoppingList[item.n].checked=!shoppingList[item.n].checked;renderList()};
-    div.querySelector('.qty-input').oninput=e=>{if(shoppingList[item.n])shoppingList[item.n].qty=e.target.value};
-    div.querySelector('.remove-btn').onclick=()=>{delete shoppingList[item.n];renderList()};
+    div.querySelector('.check-btn').onclick=()=>{sl[item.n].checked=!sl[item.n].checked;persistList();renderList()};
+    div.querySelector('.qty-input').oninput=e=>{if(sl[item.n]){sl[item.n].qty=e.target.value;persistList()}};
+    div.querySelector('.remove-btn').onclick=()=>{delete sl[item.n];persistList();renderList()};
     zone.appendChild(div);
   });
   updateProgress();
 }
 
 function clearChecked(){
-  Object.keys(shoppingList).forEach(k=>{if(shoppingList[k].checked)delete shoppingList[k]});
-  renderList();showToast('🧹 פריטים שסומנו הוסרו');
+  const sl=shoppingList();
+  Object.keys(sl).forEach(k=>{if(sl[k].checked)delete sl[k]});
+  persistList();renderList();showToast('🧹 פריטים שסומנו הוסרו');
 }
 
-function addToList(p,source){
+function clearEntireList(){
+  const sl=shoppingList();
+  if(!Object.keys(sl).length){showToast('הרשימה כבר ריקה');return}
+  allLists[activeCat]={};persistList();renderList();showToast('🗑 הרשימה נוקתה');
+}
+
+function addToList(p,source,silent=false){
+  const sl=shoppingList();
   const key=p.n;
-  if(!shoppingList[key]){
-    shoppingList[key]={...p,qty:p.qty||'1',checked:false};
-    if(source)shoppingList[key].source=source;
-    renderList();showToast('✅ '+p.n+' נוסף');
-  } else {showToast('כבר ברשימה: '+p.n)}
+  if(!sl[key]){
+    sl[key]={...p,qty:p.qty||'1',checked:false};
+    if(source)sl[key].source=source;
+    persistList();
+    if(!silent){renderList();showToast('✅ '+p.n+' נוסף')}
+  } else if(!silent){showToast('כבר ברשימה: '+p.n)}
 }
 
 function bindDrop(){
@@ -518,30 +532,99 @@ function toggleRecipeExpand(id){
 }
 
 function addAllIngredients(recipe){
+  activeCat='super-complete';
   recipe.ingredients.forEach(ing=>{
-    addToList({e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1'},recipe.title);
+    addToList({e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1'},recipe.title,true);
   });
-  // switch to first super cat to show the list
-  activeCat='super-complete';render();
+  persistList();render();
   showToast('✅ כל המרכיבים נוספו לרשימה!');
 }
 
 function addSelectedIngredients(recipe,sel){
+  activeCat='super-complete';
   recipe.ingredients.forEach((ing,idx)=>{
-    if(sel.has(idx))addToList({e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1'},recipe.title);
+    if(sel.has(idx))addToList({e:ing.e||'🥄',n:ing.n,qty:ing.qty||'1'},recipe.title,true);
   });
-  activeCat='super-complete';render();
+  persistList();render();
   showToast(`✅ ${sel.size} מרכיבים נוספו לרשימה!`);
 }
 
 /* ═══════════════════════════════════════════════
-   YOUTUBE ANALYSIS via Claude API
+   YOUTUBE RECIPE EXTRACTOR — YouTube Data API v3
+   הכנס את ה-key שלך בשורה הבאה:
 ═══════════════════════════════════════════════ */
+const YT_KEY='AIzaSyBfaI3emhZoKpr_KBQhLbSPbI-AHVs3i0E';
+
+function extractYouTubeId(url){
+  const m=url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+  return m?m[1]:null;
+}
+
+// Ingredient keywords to identify ingredient lines
+const ING_HEADERS=['מצרכים','מרכיבים','חומרים','ingredients','what you need','you will need','you\'ll need','חומרים:','מצרכים:'];
+const STOP_HEADERS=['הוראות','אופן הכנה','הכנה','הוראות הכנה','שלבים','directions','instructions','method','preparation','steps','how to'];
+
+function parseIngredientsFromText(text){
+  if(!text)return[];
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
+  let inIngSection=false;
+  const ingredients=[];
+  const quantityPattern=/^[\d\u00BC-\u00BE\u2150-\u215E½⅓⅔¼¾⅛⅜⅝⅞\-–•*✓✔►▪◦·]+/;
+
+  for(let i=0;i<lines.length;i++){
+    const lower=lines[i].toLowerCase();
+    // Check if this is an ingredient section header
+    if(ING_HEADERS.some(h=>lower.includes(h))){inIngSection=true;continue}
+    // Check if we've left the ingredient section
+    if(inIngSection&&STOP_HEADERS.some(h=>lower.includes(h))){break}
+    if(!inIngSection)continue;
+    // Skip very short lines or lines that look like headers
+    if(lines[i].length<2)continue;
+    // Collect ingredient lines — lines with quantities or bullet points
+    const cleaned=lines[i].replace(/^[-–•*✓✔►▪◦·]\s*/,'').trim();
+    if(cleaned.length>1)ingredients.push(cleaned);
+    // Stop after 20 ingredients
+    if(ingredients.length>=20)break;
+  }
+
+  // If no section found, try to find lines with quantities anywhere in text
+  if(!ingredients.length){
+    lines.forEach(line=>{
+      const cl=line.replace(/^[-–•*✓✔►▪◦·]\s*/,'').trim();
+      if(cl.length>2&&cl.length<80&&quantityPattern.test(cl))ingredients.push(cl);
+      if(ingredients.length>=15)return;
+    });
+  }
+  return ingredients;
+}
+
+function ingredientToEmoji(name){
+  const n=name.toLowerCase();
+  const map=[
+    ['עוף','🍗'],['בשר','🥩'],['דג','🐟'],['סלמון','🐟'],['טונה','🐟'],['ביצ','🥚'],
+    ['חלב','🥛'],['שמנת','🥛'],['גבינ','🧀'],['חמאה','🧈'],['שמן','🫙'],['זית','🫒'],
+    ['עגבני','🍅'],['מלפפ','🥒'],['גזר','🥕'],['בצל','🧅'],['שום','🧄'],['פטריה','🍄'],
+    ['תירס','🌽'],['חציל','🍆'],['ברוקולי','🥦'],['תרד','🥬'],['חסה','🥬'],['כרוב','🥬'],
+    ['לימון','🍋'],['תפוח','🍎'],['בננה','🍌'],['אבוקדו','🥑'],['מנגו','🥭'],
+    ['קמח','🌾'],['אורז','🍚'],['פסטה','🍝'],['לחם','🍞'],['שקדים','🥜'],['אגוז','🥜'],
+    ['סוכר','🍬'],['דבש','🍯'],['שוקולד','🍫'],['וניל','🌿'],['קינמון','🌿'],
+    ['מלח','🧂'],['פלפל','🌶️'],['כמון','🌿'],['פפריקה','🌶️'],['כורכום','🌿'],
+    ['רוטב','🫙'],['רסק','🫙'],['ציר','🫙'],['מים','💧'],['יין','🍷'],
+    ['תפוח אדמה','🥔'],['בטטה','🥔'],['קישוא','🥒'],['שעועית','🫘'],['עדשים','🫘'],
+    ['chicken','🍗'],['beef','🥩'],['fish','🐟'],['egg','🥚'],['milk','🥛'],
+    ['butter','🧈'],['oil','🫙'],['onion','🧅'],['garlic','🧄'],['tomato','🍅'],
+    ['flour','🌾'],['sugar','🍬'],['salt','🧂'],['water','💧'],['rice','🍚'],
+  ];
+  for(const[k,e]of map){if(n.includes(k))return e}
+  return '🥄';
+}
+
 async function analyzeYouTube(){
   const urlInput=document.getElementById('yt-url');
   const url=(urlInput?.value||'').trim();
   if(!url){showToast('נא להכניס קישור YouTube');return}
   if(!url.includes('youtube.com')&&!url.includes('youtu.be')){showToast('נא להכניס קישור YouTube תקין');return}
+  if(!YT_KEY||YT_KEY==='YOUR_YOUTUBE_API_KEY_HERE'){showToast('❌ נא להכניס YouTube API Key בקוד');return}
   if(analyzingRecipe)return;
   analyzingRecipe=true;
 
@@ -550,85 +633,57 @@ async function analyzeYouTube(){
   const analyzingTxt=document.getElementById('analyzing-txt');
   if(analyzeBtn)analyzeBtn.disabled=true;
   if(analyzingBar)analyzingBar.style.display='flex';
-  if(analyzingTxt)analyzingTxt.textContent='מנתח את הסרטון...';
+  if(analyzingTxt)analyzingTxt.textContent='מאחזר מידע מ-YouTube...';
 
-  try {
-    const prompt=`You are a recipe ingredient extractor. The user gave you this YouTube URL: ${url}
+  try{
+    const videoId=extractYouTubeId(url);
+    if(!videoId)throw new Error('לא הצלחתי לזהות את ה-Video ID');
 
-Your job:
-1. Extract the video ID from the URL
-2. Based on common knowledge about recipes on YouTube, or if you can identify the recipe from the URL/title, extract the ingredients list
-3. If you cannot identify the specific recipe, respond with a plausible generic recipe based on any hints in the URL
-
-Respond ONLY with a valid JSON object in this exact format (no markdown, no explanation):
-{
-  "title": "שם המתכון בעברית",
-  "ingredients": [
-    {"n": "שם המרכיב בעברית", "e": "emoji מתאים", "qty": "כמות (לדוגמה: 2 כוסות, 500 גרם)"},
-    ...
-  ]
-}
-
-Rules:
-- Title must be in Hebrew
-- Ingredient names must be in Hebrew  
-- Choose the most fitting food emoji for each ingredient
-- Include realistic quantities
-- Include 6-15 ingredients typical for this type of recipe
-- If URL contains recipe hints (pasta, chicken, chocolate, etc.) use those
-- Always return valid JSON, never return empty ingredients`;
-
-    if(analyzingTxt)analyzingTxt.textContent='שולח לניתוח AI...';
-
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-
-    if(analyzingTxt)analyzingTxt.textContent='מעבד תוצאות...';
+    // Fetch video details from YouTube Data API
+    const apiUrl=`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YT_KEY}`;
+    const response=await fetch(apiUrl);
+    if(!response.ok)throw new Error('שגיאת YouTube API: '+response.status);
     const data=await response.json();
+    const video=data.items?.[0]?.snippet;
+    if(!video)throw new Error('הסרטון לא נמצא');
 
-    // Extract text from response (may include tool use blocks)
-    const textBlock=data.content?.find(b=>b.type==='text');
-    const raw=textBlock?.text||'';
+    const title=video.title||'';
+    const description=video.description||'';
+    if(analyzingTxt)analyzingTxt.textContent='מחלץ מרכיבים...';
 
-    // Parse JSON from response
-    let parsed;
-    try{
-      const jsonMatch=raw.match(/\{[\s\S]*\}/);
-      parsed=JSON.parse(jsonMatch?.[0]||raw);
-    }catch(e){
-      throw new Error('לא הצלחתי לפרסר את התגובה');
-    }
+    // Try to parse ingredients from description
+    const rawIngredients=parseIngredientsFromText(description);
 
-    if(!parsed.title||!parsed.ingredients?.length){
-      throw new Error('לא נמצאו מרכיבים');
+    let ingredients=[];
+    if(rawIngredients.length>=3){
+      // Found ingredients in description!
+      ingredients=rawIngredients.map(line=>({
+        n:line,
+        e:ingredientToEmoji(line),
+        qty:''
+      }));
+      showToast('✅ '+title+' – '+ingredients.length+' מרכיבים נמצאו!');
+    } else {
+      // No ingredients in description — show what we have + manual option
+      throw new Error('לא נמצאו מרכיבים בתיאור הסרטון. נסה סרטון עם רשימת מרכיבים בתיאור.');
     }
 
     const recipe={
       id:'r'+Date.now(),
-      title:parsed.title,
+      title,
       url,
       date:new Date().toLocaleDateString('he-IL'),
-      ingredients:parsed.ingredients
+      ingredients
     };
-
     saveRecipe(recipe);
     if(urlInput)urlInput.value='';
     expandedRecipes[recipe.id]=true;
     selectedIngredients[recipe.id]=new Set(recipe.ingredients.map((_,i)=>i));
     renderRecipesList();
-    showToast('✅ המתכון נוסף! '+parsed.ingredients.length+' מרכיבים');
 
   }catch(err){
-    console.error(err);
-    showToast('❌ שגיאה: '+err.message);
+    console.error('Recipe error:',err);
+    showToast('❌ '+err.message);
   }finally{
     analyzingRecipe=false;
     if(analyzeBtn)analyzeBtn.disabled=false;
@@ -640,10 +695,10 @@ Rules:
    FINISH / HISTORY / EXPORT
 ═══════════════════════════════════════════════ */
 function finishShopping(){
-  const items=Object.values(shoppingList);
+  const items=Object.values(shoppingList());
   if(!items.length){showToast('הרשימה ריקה');return}
   saveToHistory(activeCat,items);
-  shoppingList={};renderList();renderSuggest();
+  allLists[activeCat]={};persistList();renderList();renderSuggest();
   document.getElementById('side-panel').style.display='none';activePanel=null;
   showToast('✅ הקניה נשמרה!');
 }
@@ -683,7 +738,7 @@ function renderHistoryPanel(){
 
 function renderExportPanel(){
   const sp=document.getElementById('side-panel');
-  const items=Object.values(shoppingList);
+  const items=Object.values(shoppingList());
   const cat=getCat();
   const text=items.length?`🛒 רשימת קניות – ${cat.label}\n${new Date().toLocaleDateString('he-IL')}\n\n${items.map(i=>`${i.e} ${i.n} × ${i.qty||'1'}${i.source?' ('+i.source+')':''}`).join('\n')}`:'הרשימה ריקה';
   sp.innerHTML=`<div class="export-area"><h3>📤 ייצוא רשימה</h3><textarea class="export-text" readonly>${text}</textarea><div class="export-row"><button class="export-btn" id="copy-btn">📋 העתק</button><button class="export-btn" id="wa-btn">💬 WhatsApp</button></div><button class="finish-btn" onclick="finishShopping()">✅ סיים קניה ושמור</button></div>`;
