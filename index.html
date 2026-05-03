@@ -980,15 +980,11 @@ function openAddModal(){
   overlay.innerHTML=`<div class="modal">
     <h3>➕ הוסף מוצרים ל${cat.label}</h3>
     <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px">
-      <textarea id="multi-input" placeholder="חלב\nלחם\nביצים\nגבינה..." rows="6" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:15px;background:var(--bg);color:var(--text);direction:rtl;resize:none;font-family:inherit;-webkit-appearance:none;line-height:1.8"></textarea>
+      <textarea id="multi-input" placeholder="חלב\nלחם\nביצים\nגבינה..." rows="7" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:15px;background:var(--bg);color:var(--text);direction:rtl;resize:none;font-family:inherit;-webkit-appearance:none;line-height:1.8"></textarea>
       <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:2px">
         <button id="modal-voice-btn" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--blue);background:#fff;color:var(--blue);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none;flex-shrink:0;transition:all 0.2s">🎙️</button>
         <span style="font-size:9px;color:var(--muted);white-space:nowrap">דיבור</span>
       </div>
-    </div>
-    <div id="voice-results" style="display:none;margin-bottom:10px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">זוהו — לחץ להוסיף/להסיר:</div>
-      <div id="voice-tags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
     <div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף לרשימה</button></div>
   </div>`;
@@ -996,50 +992,68 @@ function openAddModal(){
 
   const textarea=overlay.querySelector('#multi-input');
   const voiceBtn=overlay.querySelector('#modal-voice-btn');
-  const voiceResults=overlay.querySelector('#voice-results');
-  const voiceTags=overlay.querySelector('#voice-tags');
 
-  // Voice — uses Web Speech API (works on PWA)
+  // Voice — continuous mode, appends to textarea each phrase, no time limit
   let sr=null;
   let recording=false;
+
+  function setVoiceBtnActive(active){
+    if(active){
+      voiceBtn.textContent='⏹';
+      voiceBtn.style.background='#E24B4A';voiceBtn.style.borderColor='#E24B4A';voiceBtn.style.color='#fff';
+    } else {
+      voiceBtn.textContent='🎙️';
+      voiceBtn.style.background='#fff';voiceBtn.style.borderColor='var(--blue)';voiceBtn.style.color='var(--blue)';
+    }
+  }
 
   voiceBtn.onclick=()=>{
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){showToast('זיהוי קול לא נתמך — הוסף מהמסך הבית');return}
-    if(recording){if(sr)sr.stop();return}
+    if(recording){sr&&sr.stop();recording=false;setVoiceBtnActive(false);return}
+
     sr=new SR();
-    sr.lang='he-IL';sr.interimResults=false;sr.maxAlternatives=1;sr.continuous=false;
+    sr.lang='he-IL';
+    sr.interimResults=false;
+    sr.maxAlternatives=1;
+    sr.continuous=true;  // keep listening until user stops manually
     recording=true;
-    voiceBtn.textContent='⏹';
-    voiceBtn.style.cssText=voiceBtn.style.cssText.replace('var(--blue)','#E24B4A').replace('#fff','#fff');
-    voiceBtn.style.background='#E24B4A';voiceBtn.style.borderColor='#E24B4A';voiceBtn.style.color='#fff';
+    setVoiceBtnActive(true);
     showToast('🎙️ מקשיב... לחץ ⏹ לסיום');
+
     sr.onresult=ev=>{
-      const transcript=ev.results[0][0].transcript;
-      _showVoiceTagsInModal(transcript, voiceResults, voiceTags, textarea);
+      // Each result appends to textarea as new lines
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        if(!ev.results[i].isFinal)continue;
+        const transcript=ev.results[i][0].transcript.trim();
+        if(!transcript)continue;
+        _appendVoiceToTextarea(transcript, textarea, ()=>{});
+      }
     };
     sr.onerror=e=>{
-      recording=false;
-      voiceBtn.textContent='🎙️';voiceBtn.style.background='#fff';voiceBtn.style.borderColor='var(--blue)';voiceBtn.style.color='var(--blue)';
+      recording=false;setVoiceBtnActive(false);
       if(e.error==='service-not-allowed'||e.error==='not-allowed')_showPWAInstallPrompt();
-      else if(e.error!=='no-speech')showToast('שגיאה: '+e.error);
+      else if(e.error==='no-speech'){
+        // no-speech in continuous mode — just restart silently
+        if(recording){try{sr.start()}catch(err){}}
+      }
+      else showToast('שגיאה: '+e.error);
     };
     sr.onend=()=>{
-      recording=false;
-      voiceBtn.textContent='🎙️';voiceBtn.style.background='#fff';voiceBtn.style.borderColor='var(--blue)';voiceBtn.style.color='var(--blue)';
+      // In continuous mode, restart if still recording
+      if(recording){try{sr.start()}catch(err){recording=false;setVoiceBtnActive(false)}}
+      else setVoiceBtnActive(false);
     };
     sr.start();
   };
 
-  overlay.querySelector('#mc').onclick=()=>overlay.remove();
+  overlay.querySelector('#mc').onclick=()=>{if(sr)sr.stop();overlay.remove()};
   overlay.querySelector('#ma').onclick=()=>{
-    // Collect: typed lines + selected voice tags
-    const typed=textarea.value.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
-    const tagged=[...voiceTags.querySelectorAll('.vtag.selected')].map(el=>el.dataset.name);
-    const all=[...new Set([...typed,...tagged])];
-    if(!all.length)return;
+    if(sr)sr.stop();
+    const lines=textarea.value.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
+    if(!lines.length)return;
     let added=0;
-    all.forEach(name=>{
+    lines.forEach(name=>{
       if(!getAllProducts(activeCat).find(p=>p.n===name)){
         saveUserProduct(activeCat,{e:ingredientToEmoji(name),n:name});added++;
       }
@@ -1169,7 +1183,7 @@ function _startWhisperRecording(btnId, onTranscript){
       if(btn){btn.textContent='⏹';btn.style.color='#E24B4A'}
       showToast('🎙️ מקשיב... לחץ שוב לסיום');
       // Auto-stop after 10 seconds
-      setTimeout(()=>{ if(isRecording)_stopWhisperRecording() }, 10000);
+
     })
     .catch(err=>{
       if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
