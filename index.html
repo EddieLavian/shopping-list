@@ -240,7 +240,7 @@ function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}
 function getUserProducts(id){return load('extra_'+id,[])}
 function saveUserProduct(id,p){const a=getUserProducts(id);a.push(p);store('extra_'+id,a)}
 function deleteUserProduct(id,n){store('extra_'+id,getUserProducts(id).filter(p=>p.n!==n))}
-function getAllProducts(id){const cat=CATS.find(c=>c.id===id);return[...(cat?.products||[]),...getUserProducts(id)]}
+function getAllProducts(id){const cat=getAllCats().find(c=>c.id===id);return[...(cat?.products||[]),...getUserProducts(id)]}
 function getHistory(){return load('shop_history',[])}
 function saveToHistory(catId,items){
   if(!items.length)return;
@@ -252,6 +252,7 @@ function saveToHistory(catId,items){
 function getRecipes(){return load('saved_recipes',[])}
 function saveRecipe(r){const rs=getRecipes();rs.unshift(r);store('saved_recipes',rs.slice(0,30))}
 function deleteRecipe(id){store('saved_recipes',getRecipes().filter(r=>r.id!==id))}
+function loadFromHistory(items){if(!allLists[activeCat])allLists[activeCat]={};const sl=allLists[activeCat];items.forEach(item=>{const key=item.n;sl[key]={...item,checked:false}});persistList()}
 
 /* ═══════════════════════════════════════════════
    UI HELPERS
@@ -260,21 +261,38 @@ function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
 }
-function getCat(){return CATS.find(c=>c.id===activeCat)}
+function getCat(){return getAllCats().find(c=>c.id===activeCat)||CATS[0]}
 
 /* ═══════════════════════════════════════════════
    NAV
 ═══════════════════════════════════════════════ */
 function renderNav(){
   const nav=document.getElementById('nav');nav.innerHTML='';
-  CATS.forEach(cat=>{
+  getAllCats().forEach(cat=>{
+    const wrap=document.createElement('div');wrap.style.cssText='position:relative;display:flex;flex-shrink:0;align-items:center';
     const tab=document.createElement('div');
     tab.className='nav-tab'+(cat.id===activeCat?' active':'');
     if(cat.id===activeCat)tab.style.background=cat.color;
     tab.textContent=cat.icon+' '+cat.label;
     tab.onclick=()=>{activeCat=cat.id;activePanel=null;document.getElementById('side-panel').style.display='none';render()};
-    nav.appendChild(tab);
+    wrap.appendChild(tab);
+    if(cat.isUserCat){
+      const delBtn=document.createElement('span');
+      delBtn.textContent='×';
+      delBtn.style.cssText='position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#E24B4A;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;z-index:5;flex-shrink:0';
+      delBtn.onclick=(e)=>{e.stopPropagation();deleteCat(cat.id)};
+      wrap.appendChild(delBtn);
+    }
+    nav.appendChild(wrap);
   });
+  // Add category button
+  const addTab=document.createElement('div');
+  addTab.className='nav-tab';
+  addTab.textContent='＋';
+  addTab.title='הוסף קטגוריה';
+  addTab.style.cssText='font-size:16px;padding:5px 10px;flex-shrink:0';
+  addTab.onclick=()=>openAddCatModal();
+  nav.appendChild(addTab);
 }
 
 /* ═══════════════════════════════════════════════
@@ -300,8 +318,10 @@ function render(){
         <div class="list-header">
           <div class="list-header-top">
             <span>הרשימה שלי</span>
-            <div style="display:flex;gap:4px;align-items:center">
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
               <span class="list-count" id="list-count">0 פריטים</span>
+              <button class="clear-btn" onclick="checkAllInList()">☑ סמן הכל</button>
+              <button class="clear-btn" onclick="sortShoppingList()">🗂 מיין</button>
               <button class="clear-btn" onclick="clearChecked()">נקה סומנים</button>
               <button class="clear-btn" style="color:#E24B4A;border-color:rgba(226,75,74,0.3)" onclick="clearEntireList()">נקה הכל</button>
             </div>
@@ -315,12 +335,16 @@ function render(){
       <div class="panel-products" id="panel-products">
         <div class="panel-header">
           <span id="panel-title">מוצרים</span>
-          <button class="add-product-btn" id="add-btn">+</button>
+          <div style="display:flex;gap:5px;align-items:center">
+            <button class="add-product-btn" id="voice-cat-btn" title="הוסף מוצרים בדיבור" style="width:32px;height:32px;font-size:16px">🎙️</button>
+            <button class="add-product-btn" id="add-btn">+</button>
+          </div>
         </div>
         <div id="product-list"></div>
       </div>`;
     renderProducts();renderList();bindDrop();
     document.getElementById('add-btn').onclick=openAddModal;
+    document.getElementById('voice-cat-btn').onclick=startVoiceCatInput;
   }
 }
 
@@ -448,15 +472,28 @@ function buildRecipesPanel(){
   // Input bar — URL or paste text
   const bar=document.createElement('div');bar.className='recipe-input-bar';
   bar.innerHTML=`
-    <div class="recipe-input-row" style="margin-bottom:6px">
-      <input class="yt-input" id="yt-url" type="url" placeholder="קישור YouTube / Instagram..." autocomplete="off" spellcheck="false">
-      <button class="analyze-btn" id="analyze-btn">🎬 נתח</button>
+    <div style="margin-bottom:4px">
+      <div style="font-size:10px;font-weight:700;color:#CC0000;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">🎬 ניתוח סרטון YouTube</div>
+      <div class="recipe-input-row">
+        <input class="yt-input" id="yt-url" type="url" placeholder="הדבק קישור YouTube..." autocomplete="off" spellcheck="false">
+        <button class="analyze-btn" id="analyze-btn">נתח</button>
+      </div>
     </div>
-    <div style="position:relative">
-      <textarea class="yt-paste" id="paste-text" placeholder="— או — הדבק כאן טקסט עם מרכיבים (מאינסטגרם, בלוג וכו')..." rows="3"></textarea>
-      <div style="display:flex;gap:6px;margin-top:5px">
+    <div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:11px;font-weight:600;color:var(--muted);flex-shrink:0">או</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">📋 הדבקת טקסט מתכון</div>
+      <div style="display:flex;gap:6px;margin-bottom:5px">
         <input class="yt-input" id="paste-title" type="text" placeholder="שם המתכון..." style="flex:1;font-size:13px;padding:6px 10px">
-        <button class="analyze-btn" id="paste-btn" style="background:var(--purple)">📋 חלץ</button>
+        <input class="yt-input" id="paste-source-url" type="url" placeholder="קישור מקור..." style="flex:1;font-size:13px;padding:6px 10px;direction:ltr">
+      </div>
+      <textarea class="yt-paste" id="paste-text" placeholder="הדבק כאן את טקסט המתכון עם רשימת המרכיבים..." rows="3"></textarea>
+      <div style="display:flex;gap:6px;margin-top:5px">
+        <button class="analyze-btn" id="paste-btn" style="background:var(--purple);flex:1">📋 חלץ מרכיבים</button>
+        <button class="analyze-btn" id="voice-btn" style="background:var(--blue);flex-shrink:0;padding:9px 12px">🎙️</button>
       </div>
     </div>`;
   wrapper.appendChild(bar);
@@ -472,6 +509,7 @@ function buildRecipesPanel(){
   bar.querySelector('#analyze-btn').onclick=()=>analyzeYouTube();
   bar.querySelector('#yt-url').addEventListener('keydown',e=>{if(e.key==='Enter')analyzeYouTube()});
   bar.querySelector('#paste-btn').onclick=()=>analyzeFromText();
+  bar.querySelector('#voice-btn').onclick=()=>startVoiceInput();
 
   renderRecipesList(scroll);
   return wrapper;
@@ -483,7 +521,7 @@ function renderRecipesList(container){
   container.innerHTML='';
   const recipes=getRecipes();
   if(!recipes.length){
-    container.innerHTML=`<div class="empty-recipes"><div class="big-icon">🎬</div><h3>אין מתכונים עדיין</h3><p>הדבק קישור YouTube או טקסט מאינסטגרם<br>והאפליקציה תחלץ את המרכיבים</p></div>`;
+    container.innerHTML=`<div class="empty-recipes"><div class="big-icon">🎬</div><h3>אין מתכונים עדיין</h3><p>הדבק קישור YouTube או טקסט מתכון<br>והאפליקציה תחלץ את המרכיבים.<br>אפשר גם לדבר 🎙️ ולציין מוצרים בקול!</p></div>`;
     return;
   }
   recipes.forEach(r=>container.appendChild(buildRecipeCard(r)));
@@ -581,8 +619,10 @@ function addIngredientsToSuperBig(recipe,ingredients){
 function analyzeFromText(){
   const textArea=document.getElementById('paste-text');
   const titleInput=document.getElementById('paste-title');
+  const sourceUrlInput=document.getElementById('paste-source-url');
   const text=(textArea?.value||'').trim();
   const title=(titleInput?.value||'').trim()||'מתכון מהדבקה';
+  const sourceUrl=(sourceUrlInput?.value||'').trim();
   if(!text){showToast('נא להדביק טקסט עם מרכיבים');return}
   const rawIngredients=parseIngredientsFromText(text);
   // If section-based parsing failed, try every non-empty line
@@ -590,10 +630,11 @@ function analyzeFromText(){
     text.split(/\r?\n/).map(l=>l.replace(/^[-–•*✓✔►▪◦·]\s*/,'').trim()).filter(l=>l.length>2&&l.length<100);
   if(!lines.length){showToast('לא נמצאו מרכיבים בטקסט');return}
   const ingredients=lines.slice(0,20).map(line=>({n:line,e:ingredientToEmoji(line),qty:''}));
-  const recipe={id:'r'+Date.now(),title,url:'',date:new Date().toLocaleDateString('he-IL'),ingredients};
+  const recipe={id:'r'+Date.now(),title,url:sourceUrl,date:new Date().toLocaleDateString('he-IL'),ingredients};
   saveRecipe(recipe);
   if(textArea)textArea.value='';
   if(titleInput)titleInput.value='';
+  if(sourceUrlInput)sourceUrlInput.value='';
   expandedRecipes[recipe.id]=true;
   selectedIngredients[recipe.id]=new Set(recipe.ingredients.map((_,i)=>i));
   renderRecipesList();
@@ -762,22 +803,26 @@ function renderHistoryPanel(){
   const hist=getHistory();
   let html='<div class="history-panel"><h3>📋 היסטוריית קניות</h3>';
   if(!hist.length){html+='<p style="font-size:12px;color:var(--muted)">עדיין אין היסטוריה.</p></div>';sp.innerHTML=html;return}
-  const grouped={};hist.forEach(h=>{if(!grouped[h.catId])grouped[h.catId]=[];grouped[h.catId].push(h)});
-  Object.entries(grouped).forEach(([catId,entries])=>{
-    const cat=CATS.find(c=>c.id===catId);
-    html+=`<div class="cat-label">${cat?.icon||''} ${cat?.label||catId}</div>`;
-    entries.slice(0,3).forEach((h,i)=>{
-      const names=h.items.map(i=>i.e+i.n).join(', ');
-      html+=`<div class="hist-card"><div class="hist-header"><span class="hist-title">${h.items.length} פריטים</span><span class="hist-date">${h.date}</span></div><div class="hist-items">${names}</div><button class="use-list-btn" data-idx="${i}" data-cat="${catId}">השתמש ברשימה →</button></div>`;
-    });
+  hist.forEach((h,globalIdx)=>{
+    const cat=CATS.find(c=>c.id===h.catId);
+    const names=h.items.map(i=>i.e+i.n).join(', ');
+    html+=`<div class="hist-card"><div class="hist-header"><span class="hist-title">${cat?.icon||''} ${cat?.label||h.catId} · ${h.items.length} פריטים</span><span class="hist-date">${h.date}</span></div><div class="hist-items">${names}</div><div style="display:flex;gap:6px;margin-top:5px"><button class="use-list-btn" data-idx="${globalIdx}">השתמש ברשימה →</button><button class="del-hist-btn" data-idx="${globalIdx}" style="font-size:11px;padding:4px 8px;border-radius:20px;border:1px solid rgba(226,75,74,0.3);background:transparent;color:#E24B4A;cursor:pointer">🗑</button></div></div>`;
   });
   html+=`</div>`;
   sp.innerHTML=html;
   sp.querySelectorAll('.use-list-btn').forEach(btn=>{
     btn.onclick=()=>{
-      const catId=btn.dataset.cat;const idx=parseInt(btn.dataset.idx);
-      const entries=getHistory().filter(h=>h.catId===catId);
-      if(entries[idx]){activeCat=catId;loadFromHistory(entries[idx].items);activePanel=null;sp.style.display='none';render()}
+      const idx=parseInt(btn.dataset.idx);
+      const hist=getHistory();
+      const h=hist[idx];
+      if(h){activeCat=h.catId;loadFromHistory(h.items);activePanel=null;sp.style.display='none';render();showToast('✅ רשימה נטענה')}
+    };
+  });
+  sp.querySelectorAll('.del-hist-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const hist=getHistory();hist.splice(idx,1);store('shop_history',hist);
+      renderHistoryPanel();showToast('🗑 נמחק');
     };
   });
 }
@@ -843,19 +888,256 @@ function onTE(e){
 const EMOJIS=['🍎','🥦','🥕','🧅','🧄','🍋','🍌','🍇','🥑','🥩','🐟','🧀','🥚','🧈','🥛','🍞','🫙','🧂','🫒','🍫','🧃','💧','🧹','🧼','🧻','🛒','🌿','🍄','🌽','🥜','🍕','🥐','🍳','🥞','🧆','🥗','🍜','🥤'];
 
 function openAddModal(){
-  const cat=getCat();selEmoji=cat.icon;
+  const cat=getCat();
   const overlay=document.createElement('div');overlay.className='modal-wrap';
-  overlay.innerHTML=`<div class="modal"><h3>הוסף מוצר ל${cat.label}</h3><div class="emoji-row">${EMOJIS.map(em=>`<span class="emoji-opt${em===selEmoji?' sel':''}" data-e="${em}">${em}</span>`).join('')}</div><input type="text" id="np" placeholder="שם המוצר..." autocomplete="off"><div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף</button></div></div>`;
+  overlay.innerHTML=`<div class="modal">
+    <h3>הוסף מוצר ל${cat.label}</h3>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <div id="auto-emoji" style="font-size:32px;width:44px;height:44px;border-radius:10px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0" title="לחץ לבחירה ידנית">🛒</div>
+      <input type="text" id="np" placeholder="שם המוצר..." autocomplete="off" style="flex:1">
+    </div>
+    <div id="emoji-picker" style="display:none"><div class="emoji-row">${EMOJIS.map(em=>`<span class="emoji-opt" data-e="${em}">${em}</span>`).join('')}</div></div>
+    <div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף</button></div>
+  </div>`;
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
-  overlay.querySelectorAll('.emoji-opt').forEach(el=>el.onclick=()=>{selEmoji=el.dataset.e;overlay.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel')});
+  let emojiLocked=false;
+  let debounceTimer=null;
+  const autoEmoji=overlay.querySelector('#auto-emoji');
+  const picker=overlay.querySelector('#emoji-picker');
+  autoEmoji.onclick=()=>{picker.style.display=picker.style.display==='none'?'block':'none';emojiLocked=true};
+  overlay.querySelectorAll('.emoji-opt').forEach(el=>el.onclick=()=>{
+    autoEmoji.textContent=el.dataset.e;emojiLocked=true;
+    overlay.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
+    picker.style.display='none';
+  });
+  overlay.querySelector('#np').oninput=e=>{
+    const val=e.target.value.trim();
+    if(emojiLocked)return;
+    clearTimeout(debounceTimer);
+    if(!val){autoEmoji.textContent='🛒';return}
+    // fast local guess first
+    const quick=ingredientToEmoji(val);
+    if(quick!=='🥄')autoEmoji.textContent=quick;
+    // then AI for better result
+    debounceTimer=setTimeout(async()=>{
+      if(emojiLocked)return;
+      try{
+        const res=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:20,
+            messages:[{role:'user',content:`Return ONLY a single emoji that best represents this grocery item. No text, just the emoji: "${val}"`}]})
+        });
+        const data=await res.json();
+        const em=(data.content?.[0]?.text||'').trim();
+        if(!emojiLocked&&em&&em.length<=4)autoEmoji.textContent=em;
+      }catch(err){}
+    },600);
+  };
   overlay.querySelector('#mc').onclick=()=>overlay.remove();
   overlay.querySelector('#ma').onclick=()=>{
     const name=overlay.querySelector('#np').value.trim();if(!name)return;
-    saveUserProduct(activeCat,{e:selEmoji,n:name});
+    const emoji=autoEmoji.textContent||'🛒';
+    saveUserProduct(activeCat,{e:emoji,n:name});
     overlay.remove();renderProducts();showToast('✅ '+name+' נוסף');
   };
   document.body.appendChild(overlay);
   setTimeout(()=>overlay.querySelector('#np').focus(),150);
+}
+
+function startVoiceCatInput(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){showToast('הדפדפן לא תומך בזיהוי קול');return}
+  if(isRecording){if(voiceRecognition)voiceRecognition.stop();return}
+  const btn=document.getElementById('voice-cat-btn');
+  voiceRecognition=new SpeechRecognition();
+  voiceRecognition.lang='he-IL';voiceRecognition.interimResults=false;voiceRecognition.maxAlternatives=1;voiceRecognition.continuous=false;
+  isRecording=true;
+  if(btn){btn.textContent='⏹';btn.style.color='#E24B4A'}
+  showToast('🎙️ מקשיב... אמור שמות מוצרים');
+  voiceRecognition.onresult=async(event)=>{
+    const transcript=event.results[0][0].transcript;
+    showToast('🤔 מנתח...');
+    await analyzeVoiceWithAI(transcript);
+  };
+  voiceRecognition.onerror=(e)=>{
+    isRecording=false;if(btn){btn.textContent='🎙️';btn.style.color=''}
+    if(e.error==='no-speech')showToast('לא זוהה קול, נסה שוב');
+    else showToast('שגיאה: '+e.error);
+  };
+  voiceRecognition.onend=()=>{isRecording=false;if(btn){btn.textContent='🎙️';btn.style.color=''}};
+  voiceRecognition.start();
+}
+
+/* ═══════════════════════════════════════════════
+   VOICE INPUT
+═══════════════════════════════════════════════ */
+let voiceRecognition=null;
+let isRecording=false;
+
+function startVoiceInput(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){showToast('הדפדפן לא תומך בזיהוי קול');return}
+  if(isRecording){if(voiceRecognition)voiceRecognition.stop();return}
+  const voiceBtn=document.getElementById('voice-btn');
+  voiceRecognition=new SpeechRecognition();
+  voiceRecognition.lang='he-IL';
+  voiceRecognition.interimResults=false;
+  voiceRecognition.maxAlternatives=1;
+  voiceRecognition.continuous=false;
+  isRecording=true;
+  if(voiceBtn){voiceBtn.textContent='⏹ עצור';voiceBtn.style.background='#E24B4A'}
+  showToast('🎙️ מקשיב... אמור את שמות המוצרים');
+  voiceRecognition.onresult=async(event)=>{
+    const transcript=event.results[0][0].transcript;
+    showToast('🤔 מנתח: "'+transcript.slice(0,30)+'"...');
+    await analyzeVoiceWithAI(transcript);
+  };
+  voiceRecognition.onerror=(e)=>{
+    isRecording=false;if(voiceBtn){voiceBtn.textContent='🎙️ דיבור';voiceBtn.style.background='var(--blue)'}
+    if(e.error==='no-speech')showToast('לא זוהה קול, נסה שוב');
+    else showToast('שגיאת זיהוי קול: '+e.error);
+  };
+  voiceRecognition.onend=()=>{
+    isRecording=false;if(voiceBtn){voiceBtn.textContent='🎙️ דיבור';voiceBtn.style.background='var(--blue)'}
+  };
+  voiceRecognition.start();
+}
+
+async function analyzeVoiceWithAI(transcript){
+  const analyzingBar=document.getElementById('analyzing-bar');
+  const analyzingTxt=document.getElementById('analyzing-txt');
+  if(analyzingBar)analyzingBar.style.display='flex';
+  if(analyzingTxt)analyzingTxt.textContent='מנתח דיבור עם AI...';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:1000,
+        messages:[{role:'user',content:`אתה עוזר לרשימת קניות. המשתמש אמר: "${transcript}"\n\nחלץ את כל המוצרים שהוזכרו. החזר JSON בלבד (ללא backticks) בפורמט:\n{"items":[{"n":"שם מוצר","e":"אמוג'י מתאים","qty":"1"}]}`}]
+      })
+    });
+    const data=await res.json();
+    const text=data.content?.[0]?.text||'';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(clean);
+    if(parsed.items&&parsed.items.length){
+      const cat=getCat();
+      const sl=shoppingList();
+      let added=0;
+      parsed.items.forEach(item=>{
+        const key=item.n;
+        if(!sl[key]){sl[key]={e:item.e||'🛒',n:item.n,qty:item.qty||'1',checked:false};added++}
+      });
+      persistList();
+      if(activeCat==='recipes'){activeCat='super-complete';render()}else renderList();
+      showToast('🎙️ '+added+' מוצרים נוספו לרשימה');
+    } else showToast('לא זוהו מוצרים, נסה שוב');
+  }catch(e){
+    console.error(e);
+    showToast('שגיאה בניתוח הדיבור');
+  }finally{
+    if(analyzingBar)analyzingBar.style.display='none';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CATEGORY MANAGEMENT
+═══════════════════════════════════════════════ */
+let userCats=load('user_cats',[]);
+
+function getAllCats(){
+  // Merge built-in + user cats, preserving recipes at end
+  const builtin=CATS.filter(c=>c.id!=='recipes');
+  const combined=[...builtin,...userCats,CATS.find(c=>c.id==='recipes')];
+  return combined;
+}
+
+function openAddCatModal(){
+  const CAT_COLORS=['#1D9E75','#185FA5','#993C1D','#534AB7','#BA7517','#C05621','#0F6E56','#7C3ABD'];
+  const CAT_ICONS=['🧴','🛒','🔥','🏖️','🎂','🧺','🏠','🍿','🎃','❄️','🎄','🌙'];
+  let selColor=CAT_COLORS[0];
+  const overlay=document.createElement('div');overlay.className='modal-wrap';
+  overlay.innerHTML=`<div class="modal"><h3>➕ הוסף קטגוריה</h3>
+    <div class="emoji-row">${CAT_ICONS.map(ic=>`<span class="emoji-opt" data-ic="${ic}">${ic}</span>`).join('')}</div>
+    <input type="text" id="cat-name" placeholder="שם הקטגוריה..." autocomplete="off">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${CAT_COLORS.map(c=>`<div data-c="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid transparent;transition:border 0.15s"></div>`).join('')}</div>
+    <div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" id="ma" style="background:${selColor}">הוסף</button></div></div>`;
+  let selIcon=CAT_ICONS[0];
+  overlay.querySelectorAll('.emoji-opt').forEach(el=>el.onclick=()=>{selIcon=el.dataset.ic;overlay.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel')});
+  overlay.querySelectorAll('[data-c]').forEach(el=>el.onclick=()=>{selColor=el.dataset.c;overlay.querySelectorAll('[data-c]').forEach(x=>x.style.border='2px solid transparent');el.style.border='2px solid #2C2C2A';overlay.querySelector('#ma').style.background=selColor});
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
+  overlay.querySelector('#mc').onclick=()=>overlay.remove();
+  overlay.querySelector('#ma').onclick=()=>{
+    const name=overlay.querySelector('#cat-name').value.trim();if(!name)return;
+    const id='user-cat-'+Date.now();
+    const newCat={id,label:name,icon:selIcon,color:selColor,products:[],isUserCat:true};
+    userCats.push(newCat);store('user_cats',userCats);
+    overlay.remove();activeCat=id;render();showToast('✅ קטגוריה נוספה');
+  };
+  document.body.appendChild(overlay);
+  setTimeout(()=>overlay.querySelector('#cat-name').focus(),150);
+}
+
+function deleteCat(catId){
+  if(CATS.find(c=>c.id===catId&&!c.isUserCat)){showToast('לא ניתן למחוק קטגוריה מובנית');return}
+  if(!confirm('למחוק את הקטגוריה?'))return;
+  userCats=userCats.filter(c=>c.id!==catId);store('user_cats',userCats);
+  delete allLists[catId];persistList();
+  activeCat='super-complete';render();showToast('🗑 קטגוריה נמחקה');
+}
+
+/* ═══════════════════════════════════════════════
+   SORT LIST BY SUPERMARKET CATEGORY
+═══════════════════════════════════════════════ */
+const SORT_GROUPS={
+  'ירקות ופירות':['עגבנ','מלפפ','גזר','בצל','שום','חציל','פלפל','תירס','פטרי','ירק','שעועי','כרוב','חסה','קישו','בטט','תפוח אדמ','ברוקולי','כרובית','אספרגוס','תרד','סלק','לפת','רדיש','פלפ','תפוח','בננ','לימון','תפוז','אשכול','ענב','מנגו','אבוקד','תות','אבטיח','מלון','אגס','שזיף','משמ','דובד','אגוז','שקד','פיסטוק'],
+  'מוצרי חלב':['חלב','גבינ','יוגורט','שמנת','קוטג','גבן','חמאה','ריקוטה','מסקרפ','בולגרי'],
+  'בשר ודגים':['עוף','בשר','כבש','טלה','הודו','סלמון','דג','טונה','שרימפ','קלמרי','אנשוב','דניס','מוסר','בורי'],
+  'לחמניות ומאפים':['לחם','פיתה','פיתות','בגט','חלה','קרואסון','לחמנ','עוגה','עוגיות','ביסקוויט','מאפה'],
+  'קפואים':['קפוא','פיצה','שניצל','גלידה','סורבה','ארטיק'],
+  'שימורים ויבשים':['שימור','אורז','פסטה','קמח','סוכר','קטניות','עדשים','חומוס','שעועית','עדשה','פול'],
+  'תבלינים וסלטים':['מלח','פלפל','כמון','פפריקה','כורכום','קינמון','וניל','שמן','חומץ','רוטב','טחינה','חרדל','קטשופ','מיונז','זיתים','חמוצים','חומוס מוכן','חציל מוכן'],
+  'שתייה':['מים','מיץ','קולה','שתיי','ספרייט','בירה','יין','קפה','תה','שוקו','חלב אורז','ממיסה'],
+  'ניקיון':['סבון','שמפו','קרם','ניקוי','כביסה','אבקה','מרכך','נייר טואלט','מגבות','ממחטות','שקיות','מסכות','מניקור'],
+  'שונות':[]
+};
+
+function getSortGroup(name){
+  const n=name.toLowerCase();
+  for(const[group,keywords]of Object.entries(SORT_GROUPS)){
+    if(group==='שונות')continue;
+    if(keywords.some(k=>n.includes(k)))return group;
+  }
+  return 'שונות';
+}
+
+function sortShoppingList(){
+  const sl=shoppingList();
+  const items=Object.entries(sl);
+  if(!items.length){showToast('הרשימה ריקה');return}
+  const sorted={};
+  const grouped={};
+  items.forEach(([k,v])=>{
+    const g=getSortGroup(v.n);
+    if(!grouped[g])grouped[g]=[];
+    grouped[g].push([k,v]);
+  });
+  const order=Object.keys(SORT_GROUPS);
+  order.forEach(g=>{if(grouped[g])grouped[g].forEach(([k,v])=>{sorted[k]=v})});
+  // any remaining (shouldn't happen)
+  items.forEach(([k,v])=>{if(!sorted[k])sorted[k]=v});
+  allLists[activeCat]=sorted;
+  persistList();renderList();
+  showToast('🗂 הרשימה מוינה לפי קטגוריות');
+}
+
+function checkAllInList(){
+  const sl=shoppingList();
+  const items=Object.values(sl);
+  const allChecked=items.length&&items.every(i=>i.checked);
+  Object.keys(sl).forEach(k=>{sl[k].checked=!allChecked});
+  persistList();renderList();
 }
 
 /* ═══════════════════════════════════════════════
