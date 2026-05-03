@@ -216,7 +216,42 @@ const CATS=[
   {id:'beach',label:'ים',icon:'🏖️',color:'#185FA5',
    products:[{e:'🧴',n:'קרם שמש'},{e:'💧',n:'מים מינרל'},{e:'🥤',n:'שתייה קלה'},{e:'🍉',n:'אבטיח'},{e:'🍇',n:'ענבים'},{e:'🥪',n:'כריכים'},{e:'🍫',n:'שוקולד'},{e:'🥜',n:'בוטנים'},{e:'🍦',n:'גלידה'},{e:'🎪',n:'מחצלת'}]},
   {id:'birthday',label:'יום הולדת',icon:'🎂',color:'#534AB7',
-   products:[{e:'🎂',n:'עוגה'},{e:'🕯️',n:'נרות'},{e:'🎈',n:'בלונים'},{e:'🧁',n:'קאפקייקס'},{e:'🍭',n:'ממתקים'},{e:'🥂',n:'שתייה חגיגית'},{e:'🎁',n:'ניילון מתנה'},{e:'🎉',n:'מפזרת'},{e:'🧃',n:'מיצים לילדים'},{e:'🍕',n:'פיצה'}]},
+   products:[
+    {e:'🍽️',n:'חד פעמי (צלחות, כוסות, כפיות, מזלגות, קשים)'},
+    {e:'🍿',n:'חטיפים'},
+    {e:'🍫',n:'שוקולדים קטנים לשקית הפתעה'},
+    {e:'🥤',n:'שתייה קלה'},
+    {e:'🍋',n:'לימונדה'},
+    {e:'🍊',n:'אשכוליות'},
+    {e:'💧',n:'שישיית מים'},
+    {e:'🥒',n:'מלפפון חמוץ'},
+    {e:'🫒',n:'זיתים'},
+    {e:'🌽',n:'תירס גמדי'},
+    {e:'🐟',n:'טונה'},
+    {e:'🧃',n:'טרופיות (ארגז)'},
+    {e:'🥃',n:'ערק x2'},
+    {e:'🍷',n:'יין רוזה/גוורץ x3-4'},
+    {e:'🍺',n:'בירות x12'},
+    {e:'🧻',n:'נייר סופג'},
+    {e:'🥚',n:'ביצים'},
+    {e:'🥬',n:'כרוב'},
+    {e:'🍉',n:'אבטיח'},
+    {e:'🍈',n:'מלון'},
+    {e:'🍅',n:'עגבניות שרי'},
+    {e:'🫑',n:'פלפלים קטנים'},
+    {e:'🥒',n:'מלפפונים קטנים'},
+    {e:'🍓',n:'פטל'},
+    {e:'🥛',n:'שמנת צמחית x2'},
+    {e:'🧀',n:'קוטג 5%'},
+    {e:'🎈',n:'בלונים'},
+    {e:'🎉',n:'מפיות'},
+    {e:'🕯️',n:'נרות'},
+    {e:'🥄',n:'כפות הגשה'},
+    {e:'🎨',n:'קעקועים'},
+    {e:'🪄',n:'מפה'},
+    {e:'❄️',n:'קרח x5'},
+    {e:'🥐',n:'בורקסים'},
+  ]},
   {id:'picnic',label:'פיקניק',icon:'🧺',color:'#BA7517',
    products:[{e:'🥪',n:'כריכים'},{e:'🍇',n:'פירות'},{e:'🧀',n:'גבינות'},{e:'🥖',n:'לחמניות'},{e:'🫙',n:'ריבה'},{e:'🥒',n:'ירקות חתוכים'},{e:'🍫',n:'שוקולד'},{e:'🧃',n:'מיצים'},{e:'☕',n:'תרמוס קפה'},{e:'🍪',n:'עוגיות'},{e:'💧',n:'מים'}]},
   {id:'recipes',label:'מתכונים',icon:'🍳',color:'#C05621',products:[]}
@@ -324,6 +359,7 @@ function render(){
             <span>הרשימה שלי</span>
             <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
               <span class="list-count" id="list-count">0 פריטים</span>
+              <button class="clear-btn" id="edit-list-btn" onclick="toggleEditMode()">✏️ עריכה</button>
               <button class="clear-btn" onclick="checkAllInList()">☑ סמן הכל</button>
               <button class="clear-btn" onclick="sortShoppingList()">🗂 מיין</button>
               <button class="clear-btn" onclick="clearChecked()">נקה סומנים</button>
@@ -340,6 +376,8 @@ function render(){
         <div class="panel-header">
           <span id="panel-title">מוצרים</span>
           <div style="display:flex;gap:5px;align-items:center">
+            <button class="add-product-btn" id="select-products-btn" style="font-size:11px;font-weight:600;width:auto;padding:0 8px;border-radius:20px;border:1px solid var(--border)">בחירה</button>
+            <button class="add-product-btn" id="edit-products-btn" title="עריכה" style="font-size:14px">✏️</button>
             <button class="add-product-btn" id="add-btn">+</button>
           </div>
         </div>
@@ -347,6 +385,8 @@ function render(){
       </div>`;
     renderProducts();renderList();bindDrop();
     document.getElementById('add-btn').onclick=openAddModal;
+    document.getElementById('edit-products-btn').onclick=toggleProductEditMode;
+    document.getElementById('select-products-btn').onclick=toggleProductSelectMode;
   }
 }
 
@@ -363,12 +403,43 @@ function renderProducts(){
   getAllProducts(cat.id).forEach(p=>{
     const div=document.createElement('div');div.className='product-item';
     const isUser=userNames.includes(p.n);
-    div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">לחץ להוסיף</div></div><button class="remove-product-btn" data-n="${p.n}">×</button>`;
-    div.addEventListener('click',()=>addToList(p));
-    div.setAttribute('draggable','true');
-    div.addEventListener('dragstart',ev=>{dragItem=p;ev.dataTransfer.effectAllowed='copy';createGhost(p,ev.clientX,ev.clientY)});
-    div.addEventListener('dragend',()=>{removeGhost();dragItem=null});
-    div.addEventListener('touchstart',ev=>touchStart(ev,p),{passive:true});
+    if(window._productEditMode){
+      div.innerHTML=`<span class="product-emoji">${p.e}</span><input class="list-item-edit-input" value="${p.n.replace(/"/g,'&quot;')}" style="flex:1;font-size:13px;background:transparent;border:none;border-bottom:1.5px solid var(--green);outline:none;color:var(--text);direction:rtl;padding:2px 0;min-width:0"><button class="remove-product-btn" data-n="${p.n}">×</button>`;
+      const inp=div.querySelector('.list-item-edit-input');
+      const saveProductName=()=>{
+        const newName=inp.value.trim();
+        if(!newName||newName===p.n)return;
+        if(isUser){
+          const prods=getUserProducts(cat.id);
+          const idx=prods.findIndex(x=>x.n===p.n);
+          if(idx>=0){prods[idx]={...prods[idx],n:newName,e:ingredientToEmoji(newName)};store('extra_'+cat.id,prods);}
+        } else {
+          // For builtin: hide old and add as user product with new name
+          hideBuiltinProduct(cat.id,p.n);
+          saveUserProduct(cat.id,{e:ingredientToEmoji(newName),n:newName});
+        }
+        renderProducts();
+      };
+      inp.onblur=saveProductName;
+      inp.onkeydown=e=>{if(e.key==='Enter'){inp.blur();}if(e.key==='Escape'){inp.value=p.n;inp.blur();}};
+    } else if(window._productSelectMode){
+      const sel=window._selectedProducts&&window._selectedProducts.has(p.n);
+      div.innerHTML=`<span style="font-size:18px;width:22px;text-align:center;flex-shrink:0">${sel?'✅':'⬜'}</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div></div>`;
+      div.style.background=sel?'rgba(29,158,117,0.08)':'';
+      div.onclick=(e)=>{
+        e.stopPropagation();
+        if(!window._selectedProducts)window._selectedProducts=new Set();
+        if(window._selectedProducts.has(p.n))window._selectedProducts.delete(p.n);
+        else window._selectedProducts.add(p.n);
+        renderProducts();
+      };
+    } else {
+      div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">גרור להוסיף</div></div><button class="remove-product-btn" data-n="${p.n}">×</button>`;
+      div.setAttribute('draggable','true');
+      div.addEventListener('dragstart',ev=>{dragItem=p;ev.dataTransfer.effectAllowed='copy';createGhost(p,ev.clientX,ev.clientY)});
+      div.addEventListener('dragend',()=>{removeGhost();dragItem=null});
+      div.addEventListener('touchstart',ev=>touchStart(ev,p),{passive:true});
+    }
     const rb=div.querySelector('.remove-product-btn');
     if(rb)rb.onclick=e=>{
       e.stopPropagation();
@@ -378,6 +449,32 @@ function renderProducts(){
     };
     list.appendChild(div);
   });
+
+  // Show "add selected" bar when in select mode
+  if(window._productSelectMode){
+    const count=window._selectedProducts?window._selectedProducts.size:0;
+    const bar=document.createElement('div');
+    bar.style.cssText='position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;align-items:center';
+    bar.innerHTML=`<span style="flex:1;font-size:12px;color:var(--muted)">${count} פריטים נבחרו</span><button style="padding:8px 16px;border-radius:20px;border:none;background:${count?'var(--green)':'var(--border)'};color:${count?'#fff':'var(--muted)'};font-size:13px;font-weight:600;cursor:${count?'pointer':'default'}" id="add-selected-btn">הוסף לסל ←</button>`;
+    bar.querySelector('#add-selected-btn').onclick=()=>{
+      if(!window._selectedProducts||!window._selectedProducts.size)return;
+      const prods=getAllProducts(cat.id);
+      let added=0;
+      window._selectedProducts.forEach(name=>{
+        const p=prods.find(x=>x.n===name);
+        if(p){addToList(p,null,true);added++;}
+      });
+      window._selectedProducts=new Set();
+      window._productSelectMode=false;
+      const btn=document.getElementById('select-products-btn');
+      if(btn){btn.style.background='';btn.style.color=''}
+      document.removeEventListener('click',_exitProductSelectOnOutside);
+      document.removeEventListener('touchend',_exitProductSelectOnOutside);
+      renderProducts();renderList();
+      showToast('✅ '+added+' פריטים נוספו לסל');
+    };
+    list.appendChild(bar);
+  }
 
   // Show restore button if there are hidden builtin products
   const hidden=getHiddenProducts(cat.id);
@@ -430,9 +527,26 @@ function renderList(){
   const renderItem=(item)=>{
     const key=item.recipeId?item.n+'__'+item.recipeId:item.n;
     const div=document.createElement('div');div.className='list-item'+(item.checked?' checked':'');
-    div.innerHTML=`<button class="check-btn${item.checked?' done':''}">${item.checked?'✓':''}</button><span class="list-item-emoji">${item.e}</span><div class="list-item-info"><div class="list-item-name">${item.n}</div></div><input class="qty-input" type="tel" value="${item.qty||'1'}" placeholder="כמות"><button class="remove-btn">×</button>`;
-    div.querySelector('.check-btn').onclick=()=>{if(sl[key]){sl[key].checked=!sl[key].checked;persistList();renderList()}};
-    div.querySelector('.qty-input').oninput=e=>{if(sl[key]){sl[key].qty=e.target.value;persistList()}};
+    const inEditMode=window._listEditMode;
+    if(inEditMode){
+      div.innerHTML=`<span class="list-item-emoji">${item.e}</span><input class="list-item-edit-input" value="${item.n.replace(/"/g,'&quot;')}" style="flex:1;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:1.5px solid var(--green);outline:none;color:var(--text);direction:rtl;padding:2px 0;min-width:0"><button class="remove-btn">×</button>`;
+      const inp=div.querySelector('.list-item-edit-input');
+      inp.onchange=()=>{
+        const newName=inp.value.trim();
+        if(newName&&newName!==item.n&&sl[key]){
+          const updated={...sl[key],n:newName,e:ingredientToEmoji(newName)};
+          delete sl[key];
+          const newKey=item.recipeId?newName+'__'+item.recipeId:newName;
+          sl[newKey]=updated;
+          persistList();
+        }
+      };
+      inp.onkeydown=e=>{if(e.key==='Enter')inp.blur()};
+    } else {
+      div.innerHTML=`<button class="check-btn${item.checked?' done':''}">${item.checked?'✓':''}</button><span class="list-item-emoji">${item.e}</span><div class="list-item-info"><div class="list-item-name">${item.n}</div></div><input class="qty-input" type="tel" value="${item.qty||'1'}" placeholder="כמות"><button class="remove-btn">×</button>`;
+      div.querySelector('.check-btn').onclick=()=>{if(sl[key]){sl[key].checked=!sl[key].checked;persistList();renderList()}};
+      div.querySelector('.qty-input').oninput=e=>{if(sl[key]){sl[key].qty=e.target.value;persistList()}};
+    }
     div.querySelector('.remove-btn').onclick=()=>{delete sl[key];persistList();renderList()};
     zone.appendChild(div);
   };
@@ -449,6 +563,101 @@ function renderList(){
   });
 
   updateProgress();
+}
+
+function toggleProductSelectMode(){
+  window._productSelectMode=!window._productSelectMode;
+  if(window._productSelectMode)window._selectedProducts=new Set();
+  const btn=document.getElementById('select-products-btn');
+  if(window._productSelectMode){
+    if(btn){btn.style.background='var(--green)';btn.style.color='#fff';btn.style.borderRadius='50%'}
+    // Exit edit mode if active
+    window._productEditMode=false;
+    const eb=document.getElementById('edit-products-btn');
+    if(eb){eb.style.background='';eb.style.color=''}
+    setTimeout(()=>{
+      document.addEventListener('click',_exitProductSelectOnOutside);
+      document.addEventListener('touchend',_exitProductSelectOnOutside);
+    },100);
+  } else {
+    window._selectedProducts=new Set();
+    if(btn){btn.style.background='';btn.style.color=''}
+    document.removeEventListener('click',_exitProductSelectOnOutside);
+    document.removeEventListener('touchend',_exitProductSelectOnOutside);
+  }
+  renderProducts();
+}
+
+function _exitProductSelectOnOutside(e){
+  const panel=document.getElementById('panel-products');
+  const btn=document.getElementById('select-products-btn');
+  if(panel&&!panel.contains(e.target)&&e.target!==btn){
+    window._productSelectMode=false;
+    window._selectedProducts=new Set();
+    if(btn){btn.style.background='';btn.style.color=''}
+    document.removeEventListener('click',_exitProductSelectOnOutside);
+    document.removeEventListener('touchend',_exitProductSelectOnOutside);
+    renderProducts();
+  }
+}
+
+function toggleProductEditMode(){
+  window._productEditMode=!window._productEditMode;
+  const btn=document.getElementById('edit-products-btn');
+  if(window._productEditMode){
+    if(btn){btn.style.background='var(--green)';btn.style.color='#fff';btn.style.borderRadius='50%'}
+    setTimeout(()=>{
+      document.addEventListener('click',_exitProductEditOnOutside);
+      document.addEventListener('touchend',_exitProductEditOnOutside);
+    },100);
+  } else {
+    if(btn){btn.style.background='';btn.style.color=''}
+    document.removeEventListener('click',_exitProductEditOnOutside);
+    document.removeEventListener('touchend',_exitProductEditOnOutside);
+  }
+  renderProducts();
+}
+
+function _exitProductEditOnOutside(e){
+  const panel=document.getElementById('panel-products');
+  const btn=document.getElementById('edit-products-btn');
+  if(panel&&!panel.contains(e.target)&&e.target!==btn){
+    window._productEditMode=false;
+    if(btn){btn.style.background='';btn.style.color=''}
+    document.removeEventListener('click',_exitProductEditOnOutside);
+    document.removeEventListener('touchend',_exitProductEditOnOutside);
+    renderProducts();
+  }
+}
+
+function toggleEditMode(){
+  window._listEditMode=!window._listEditMode;
+  const btn=document.getElementById('edit-list-btn');
+  if(window._listEditMode){
+    if(btn){btn.style.background='var(--green)';btn.style.color='#fff';btn.style.borderColor='var(--green)'}
+    // Click outside list to exit edit mode
+    setTimeout(()=>{
+      document.addEventListener('click', _exitEditOnOutside);
+      document.addEventListener('touchend', _exitEditOnOutside);
+    }, 100);
+  } else {
+    if(btn){btn.style.background='';btn.style.color='';btn.style.borderColor=''}
+    document.removeEventListener('click', _exitEditOnOutside);
+    document.removeEventListener('touchend', _exitEditOnOutside);
+  }
+  renderList();
+}
+
+function _exitEditOnOutside(e){
+  const zone=document.getElementById('drop-zone');
+  const btn=document.getElementById('edit-list-btn');
+  if(zone&&!zone.contains(e.target)&&e.target!==btn){
+    window._listEditMode=false;
+    if(btn){btn.style.background='';btn.style.color='';btn.style.borderColor=''}
+    document.removeEventListener('click',_exitEditOnOutside);
+    document.removeEventListener('touchend',_exitEditOnOutside);
+    renderList();
+  }
 }
 
 function clearChecked(){
