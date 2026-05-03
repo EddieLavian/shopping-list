@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="רשימת קניות">
 <meta name="theme-color" content="#1D9E75">
+<link rel="apple-touch-icon" href="https://eddielavian.github.io/shopping-list/icon.png" onerror="this.remove()">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;רשימת קניות&quot;,&quot;short_name&quot;:&quot;קניות&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23f8f7f4&quot;,&quot;theme_color&quot;:&quot;%231D9E75&quot;}">
 <title>רשימת קניות</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -336,7 +338,6 @@ function render(){
         <div class="panel-header">
           <span id="panel-title">מוצרים</span>
           <div style="display:flex;gap:5px;align-items:center">
-            <button class="add-product-btn" id="voice-cat-btn" title="הוסף מוצרים בדיבור" style="width:32px;height:32px;font-size:16px">🎙️</button>
             <button class="add-product-btn" id="add-btn">+</button>
           </div>
         </div>
@@ -344,7 +345,6 @@ function render(){
       </div>`;
     renderProducts();renderList();bindDrop();
     document.getElementById('add-btn').onclick=openAddModal;
-    document.getElementById('voice-cat-btn').onclick=startVoiceCatInput;
   }
 }
 
@@ -493,7 +493,6 @@ function buildRecipesPanel(){
       <textarea class="yt-paste" id="paste-text" placeholder="הדבק כאן את טקסט המתכון עם רשימת המרכיבים..." rows="3"></textarea>
       <div style="display:flex;gap:6px;margin-top:5px">
         <button class="analyze-btn" id="paste-btn" style="background:var(--purple);flex:1">📋 חלץ מרכיבים</button>
-        <button class="analyze-btn" id="voice-btn" style="background:var(--blue);flex-shrink:0;padding:9px 12px">🎙️</button>
       </div>
     </div>`;
   wrapper.appendChild(bar);
@@ -509,7 +508,6 @@ function buildRecipesPanel(){
   bar.querySelector('#analyze-btn').onclick=()=>analyzeYouTube();
   bar.querySelector('#yt-url').addEventListener('keydown',e=>{if(e.key==='Enter')analyzeYouTube()});
   bar.querySelector('#paste-btn').onclick=()=>analyzeFromText();
-  bar.querySelector('#voice-btn').onclick=()=>startVoiceInput();
 
   renderRecipesList(scroll);
   return wrapper;
@@ -688,19 +686,68 @@ function parseIngredientsFromText(text){
 function ingredientToEmoji(name){
   const n=name.toLowerCase();
   const map=[
-    ['עוף','🍗'],['בשר','🥩'],['דג','🐟'],['סלמון','🐟'],['טונה','🐟'],['ביצ','🥚'],
-    ['חלב','🥛'],['שמנת','🥛'],['גבינ','🧀'],['חמאה','🧈'],['שמן','🫙'],['זית','🫒'],
-    ['עגבני','🍅'],['מלפפ','🥒'],['גזר','🥕'],['בצל','🧅'],['שום','🧄'],['פטריה','🍄'],
-    ['תירס','🌽'],['חציל','🍆'],['ברוקולי','🥦'],['תרד','🥬'],['חסה','🥬'],['כרוב','🥬'],
+    // בשר ודגים
+    ['עוף','🍗'],['בשר','🥩'],['כבש','🥩'],['הודו','🦃'],['נקניק','🌭'],['שניצל','🍗'],
+    ['דג','🐟'],['סלמון','🐟'],['טונה','🐟'],['דניס','🐟'],['בורי','🐟'],['מוסר','🐟'],
+    ['שרימפ','🦐'],['קלמרי','🦑'],['סרדין','🐟'],
+    // חלב וביצים
+    ['ביצ','🥚'],['חלב','🥛'],['שוקו','🥛'],['שמנת','🥛'],['גבינ','🧀'],['קוטג','🧀'],
+    ['יוגורט','🫙'],['חמאה','🧈'],['מרגרינה','🧈'],['ריקוטה','🧀'],['מוצרלה','🧀'],
+    // ירקות
+    ['עגבני','🍅'],['מלפפ','🥒'],['גזר','🥕'],['בצל','🧅'],['שום','🧄'],
+    ['פטריה','🍄'],['תירס','🌽'],['חציל','🍆'],['ברוקולי','🥦'],['כרובית','🥦'],
+    ['תרד','🥬'],['חסה','🥬'],['כרוב','🥬'],['פלפל אדום','🫑'],['פלפל ירוק','🫑'],
+    ['פלפל','🫑'],['קישוא','🥒'],['סלרי','🥬'],['אספרגוס','🥦'],['ארטישוק','🥦'],
+    ['תפוח אדמה','🥔'],['בטטה','🥔'],['שעועית','🫘'],['אפונה','🫛'],
+    ['עדשים','🫘'],['חומוס גולמי','🫘'],['סלק','🫚'],['לפת','🥬'],
+    // פירות
     ['לימון','🍋'],['תפוח','🍎'],['בננה','🍌'],['אבוקדו','🥑'],['מנגו','🥭'],
-    ['קמח','🌾'],['אורז','🍚'],['פסטה','🍝'],['לחם','🍞'],['שקדים','🥜'],['אגוז','🥜'],
-    ['סוכר','🍬'],['דבש','🍯'],['שוקולד','🍫'],['וניל','🌿'],['קינמון','🌿'],
-    ['מלח','🧂'],['פלפל','🌶️'],['כמון','🌿'],['פפריקה','🌶️'],['כורכום','🌿'],
-    ['רוטב','🫙'],['רסק','🫙'],['ציר','🫙'],['מים','💧'],['יין','🍷'],
-    ['תפוח אדמה','🥔'],['בטטה','🥔'],['קישוא','🥒'],['שעועית','🫘'],['עדשים','🫘'],
+    ['תות','🍓'],['אוכמניות','🫐'],['ענבים','🍇'],['אבטיח','🍉'],['מלון','🍈'],
+    ['אפרסק','🍑'],['שזיף','🍑'],['תמר','🌴'],['רימון','🍎'],['קיווי','🥝'],
+    ['תפוז','🍊'],['מנדרינה','🍊'],['אשכולית','🍊'],['אגס','🍐'],['דובדבן','🍒'],
+    ['אננס','🍍'],['פפאיה','🥭'],['פסיפלורה','🍈'],
+    // לחם ומאפים
+    ['לחם','🍞'],['פיתה','🫓'],['לחמניה','🥖'],['בגט','🥖'],['חלה','🍞'],
+    ['קרואסון','🥐'],['מאפה','🥐'],['טורטייה','🫓'],
+    // יבשים ודגנים
+    ['קמח','🌾'],['אורז','🍚'],['פסטה','🍝'],['קוסקוס','🍚'],['בורגול','🌾'],
+    ['שיבולת שועל','🌾'],['גרנולה','🌾'],['קינואה','🌾'],
+    // אגוזים וזרעים
+    ['שקד','🥜'],['אגוז','🥜'],['בוטנ','🥜'],['פיסטוק','🥜'],['קשיו','🥜'],
+    ['גרעין','🌻'],['שומשום','🌿'],['צנובר','🌲'],
+    // תבלינים ורטבים
+    ['מלח','🧂'],['פלפל שחור','🌶️'],['כמון','🌿'],['פפריקה','🌶️'],['כורכום','🌿'],
+    ['קינמון','🌿'],['וניל','🌿'],['אורגנו','🌿'],['בזיליקום','🌿'],['רוזמרין','🌿'],
+    ['טימין','🌿'],['עלי דפנה','🌿'],['כוסברה','🌿'],['פטרוזיליה','🌿'],['נענע','🌿'],
+    ['רוטב','🫙'],['רסק','🫙'],['ציר','🫙'],['חרדל','🫙'],['קטשופ','🍅'],
+    ['מיונז','🫙'],['טחינה','🫙'],['חומוס מוכן','🫙'],['חמוצים','🫙'],
+    // שמנים וממרחים
+    ['שמן זית','🫒'],['שמן','🫙'],['זית','🫒'],['חמאת בוטנים','🥜'],
+    ['ריבה','🍓'],['דבש','🍯'],['סילאן','🍯'],['ממרח','🫙'],
+    // מתוקים
+    ['סוכר','🍬'],['שוקולד','🍫'],['ממתק','🍬'],['גומי','🍬'],['במבה','🥜'],
+    ['ביסלי','🍿'],['פופקורן','🍿'],['עוגיות','🍪'],['עוגה','🎂'],['קאפקייק','🧁'],
+    ['גלידה','🍦'],['ארטיק','🍦'],['מרשמלו','☁️'],['חלבה','🍬'],
+    // שתייה
+    ['מים','💧'],['סודה','🫧'],['קולה','🥤'],['ספרייט','🥤'],['פאנטה','🥤'],
+    ['מיץ','🧃'],['מיץ תפוחים','🍎'],['מיץ תפוזים','🍊'],['שייק','🥤'],
+    ['קפה','☕'],['תה','🫖'],['קקאו','☕'],['בירה','🍺'],['יין','🍷'],
+    ['וודקה','🍾'],['וויסקי','🥃'],
+    // ניקיון ובית
+    ['נייר טואלט','🧻'],['מגבת נייר','🧻'],['ממחטות','🤧'],['שקיות','🛍️'],
+    ['סבון','🧼'],['שמפו','🧴'],['מרכך','🧴'],['קרם','🧴'],['דאודורנט','🧴'],
+    ['אבקת כביסה','🫧'],['מרכך כביסה','🫧'],['נוזל כלים','🫧'],['נוזל ניקוי','🧹'],
+    ['ספוג','🧽'],['מטאטא','🧹'],['שואב אבק','🧹'],['שקיות זבל','🗑️'],
+    // תינוקות
+    ['חיתול','👶'],['מוצץ','👶'],['פורמולה','🍼'],
+    // שונות
+    ['ביצים','🥚'],['חלב אורז','🥛'],['חלב שקדים','🥛'],['חלב שיבולת שועל','🥛'],
+    // English fallbacks
     ['chicken','🍗'],['beef','🥩'],['fish','🐟'],['egg','🥚'],['milk','🥛'],
     ['butter','🧈'],['oil','🫙'],['onion','🧅'],['garlic','🧄'],['tomato','🍅'],
     ['flour','🌾'],['sugar','🍬'],['salt','🧂'],['water','💧'],['rice','🍚'],
+    ['pasta','🍝'],['bread','🍞'],['cheese','🧀'],['yogurt','🫙'],['peas','🫛'],
+    ['chocolate','🍫'],['coffee','☕'],['tea','🫖'],['beer','🍺'],['wine','🍷'],
   ];
   for(const[k,e]of map){if(n.includes(k))return e}
   return '🥄';
@@ -891,154 +938,380 @@ function openAddModal(){
   const cat=getCat();
   const overlay=document.createElement('div');overlay.className='modal-wrap';
   overlay.innerHTML=`<div class="modal">
-    <h3>הוסף מוצר ל${cat.label}</h3>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-      <div id="auto-emoji" style="font-size:32px;width:44px;height:44px;border-radius:10px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0" title="לחץ לבחירה ידנית">🛒</div>
-      <input type="text" id="np" placeholder="שם המוצר..." autocomplete="off" style="flex:1">
+    <h3>➕ הוסף מוצרים ל${cat.label}</h3>
+    <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px">
+      <textarea id="multi-input" placeholder="חלב\nלחם\nביצים\nגבינה..." rows="6" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:15px;background:var(--bg);color:var(--text);direction:rtl;resize:none;font-family:inherit;-webkit-appearance:none;line-height:1.8"></textarea>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:2px">
+        <button id="modal-voice-btn" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--blue);background:#fff;color:var(--blue);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none;flex-shrink:0;transition:all 0.2s">🎙️</button>
+        <span style="font-size:9px;color:var(--muted);white-space:nowrap">דיבור</span>
+      </div>
     </div>
-    <div id="emoji-picker" style="display:none"><div class="emoji-row">${EMOJIS.map(em=>`<span class="emoji-opt" data-e="${em}">${em}</span>`).join('')}</div></div>
-    <div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף</button></div>
+    <div id="voice-results" style="display:none;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">זוהו — לחץ להוסיף/להסיר:</div>
+      <div id="voice-tags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+    <div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף לרשימה</button></div>
   </div>`;
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
-  let emojiLocked=false;
-  let debounceTimer=null;
-  const autoEmoji=overlay.querySelector('#auto-emoji');
-  const picker=overlay.querySelector('#emoji-picker');
-  autoEmoji.onclick=()=>{picker.style.display=picker.style.display==='none'?'block':'none';emojiLocked=true};
-  overlay.querySelectorAll('.emoji-opt').forEach(el=>el.onclick=()=>{
-    autoEmoji.textContent=el.dataset.e;emojiLocked=true;
-    overlay.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
-    picker.style.display='none';
-  });
-  overlay.querySelector('#np').oninput=e=>{
-    const val=e.target.value.trim();
-    if(emojiLocked)return;
-    clearTimeout(debounceTimer);
-    if(!val){autoEmoji.textContent='🛒';return}
-    // fast local guess first
-    const quick=ingredientToEmoji(val);
-    if(quick!=='🥄')autoEmoji.textContent=quick;
-    // then AI for better result
-    debounceTimer=setTimeout(async()=>{
-      if(emojiLocked)return;
-      try{
-        const res=await fetch('https://api.anthropic.com/v1/messages',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:20,
-            messages:[{role:'user',content:`Return ONLY a single emoji that best represents this grocery item. No text, just the emoji: "${val}"`}]})
-        });
-        const data=await res.json();
-        const em=(data.content?.[0]?.text||'').trim();
-        if(!emojiLocked&&em&&em.length<=4)autoEmoji.textContent=em;
-      }catch(err){}
-    },600);
+
+  const textarea=overlay.querySelector('#multi-input');
+  const voiceBtn=overlay.querySelector('#modal-voice-btn');
+  const voiceResults=overlay.querySelector('#voice-results');
+  const voiceTags=overlay.querySelector('#voice-tags');
+
+  // Voice — uses Web Speech API (works on PWA)
+  let sr=null;
+  let recording=false;
+
+  voiceBtn.onclick=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){showToast('זיהוי קול לא נתמך — הוסף מהמסך הבית');return}
+    if(recording){if(sr)sr.stop();return}
+    sr=new SR();
+    sr.lang='he-IL';sr.interimResults=false;sr.maxAlternatives=1;sr.continuous=false;
+    recording=true;
+    voiceBtn.textContent='⏹';
+    voiceBtn.style.cssText=voiceBtn.style.cssText.replace('var(--blue)','#E24B4A').replace('#fff','#fff');
+    voiceBtn.style.background='#E24B4A';voiceBtn.style.borderColor='#E24B4A';voiceBtn.style.color='#fff';
+    showToast('🎙️ מקשיב... לחץ ⏹ לסיום');
+    sr.onresult=ev=>{
+      const transcript=ev.results[0][0].transcript;
+      _showVoiceTagsInModal(transcript, voiceResults, voiceTags, textarea);
+    };
+    sr.onerror=e=>{
+      recording=false;
+      voiceBtn.textContent='🎙️';voiceBtn.style.background='#fff';voiceBtn.style.borderColor='var(--blue)';voiceBtn.style.color='var(--blue)';
+      if(e.error==='service-not-allowed'||e.error==='not-allowed')_showPWAInstallPrompt();
+      else if(e.error!=='no-speech')showToast('שגיאה: '+e.error);
+    };
+    sr.onend=()=>{
+      recording=false;
+      voiceBtn.textContent='🎙️';voiceBtn.style.background='#fff';voiceBtn.style.borderColor='var(--blue)';voiceBtn.style.color='var(--blue)';
+    };
+    sr.start();
   };
+
   overlay.querySelector('#mc').onclick=()=>overlay.remove();
   overlay.querySelector('#ma').onclick=()=>{
-    const name=overlay.querySelector('#np').value.trim();if(!name)return;
-    const emoji=autoEmoji.textContent||'🛒';
-    saveUserProduct(activeCat,{e:emoji,n:name});
-    overlay.remove();renderProducts();showToast('✅ '+name+' נוסף');
+    // Collect: typed lines + selected voice tags
+    const typed=textarea.value.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
+    const tagged=[...voiceTags.querySelectorAll('.vtag.selected')].map(el=>el.dataset.name);
+    const all=[...new Set([...typed,...tagged])];
+    if(!all.length)return;
+    let added=0;
+    all.forEach(name=>{
+      if(!getAllProducts(activeCat).find(p=>p.n===name)){
+        saveUserProduct(activeCat,{e:ingredientToEmoji(name),n:name});added++;
+      }
+    });
+    overlay.remove();renderProducts();
+    showToast('✅ '+added+' מוצרים נוספו');
   };
   document.body.appendChild(overlay);
-  setTimeout(()=>overlay.querySelector('#np').focus(),150);
-}
-
-function startVoiceCatInput(){
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SpeechRecognition){showToast('הדפדפן לא תומך בזיהוי קול');return}
-  if(isRecording){if(voiceRecognition)voiceRecognition.stop();return}
-  const btn=document.getElementById('voice-cat-btn');
-  voiceRecognition=new SpeechRecognition();
-  voiceRecognition.lang='he-IL';voiceRecognition.interimResults=false;voiceRecognition.maxAlternatives=1;voiceRecognition.continuous=false;
-  isRecording=true;
-  if(btn){btn.textContent='⏹';btn.style.color='#E24B4A'}
-  showToast('🎙️ מקשיב... אמור שמות מוצרים');
-  voiceRecognition.onresult=async(event)=>{
-    const transcript=event.results[0][0].transcript;
-    showToast('🤔 מנתח...');
-    await analyzeVoiceWithAI(transcript);
-  };
-  voiceRecognition.onerror=(e)=>{
-    isRecording=false;if(btn){btn.textContent='🎙️';btn.style.color=''}
-    if(e.error==='no-speech')showToast('לא זוהה קול, נסה שוב');
-    else showToast('שגיאה: '+e.error);
-  };
-  voiceRecognition.onend=()=>{isRecording=false;if(btn){btn.textContent='🎙️';btn.style.color=''}};
-  voiceRecognition.start();
+  setTimeout(()=>{const el=overlay.querySelector('#multi-input');if(el)el.focus()},150);
 }
 
 /* ═══════════════════════════════════════════════
-   VOICE INPUT
+   VOICE INPUT — MediaRecorder + Whisper (works on Safari iOS)
 ═══════════════════════════════════════════════ */
-let voiceRecognition=null;
+let voiceRecognition=null; // kept for compat
 let isRecording=false;
+let mediaRecorder=null;
+let audioChunks=[];
 
-function startVoiceInput(){
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SpeechRecognition){showToast('הדפדפן לא תומך בזיהוי קול');return}
-  if(isRecording){if(voiceRecognition)voiceRecognition.stop();return}
-  const voiceBtn=document.getElementById('voice-btn');
-  voiceRecognition=new SpeechRecognition();
-  voiceRecognition.lang='he-IL';
-  voiceRecognition.interimResults=false;
-  voiceRecognition.maxAlternatives=1;
-  voiceRecognition.continuous=false;
-  isRecording=true;
-  if(voiceBtn){voiceBtn.textContent='⏹ עצור';voiceBtn.style.background='#E24B4A'}
-  showToast('🎙️ מקשיב... אמור את שמות המוצרים');
-  voiceRecognition.onresult=async(event)=>{
-    const transcript=event.results[0][0].transcript;
-    showToast('🤔 מנתח: "'+transcript.slice(0,30)+'"...');
-    await analyzeVoiceWithAI(transcript);
-  };
-  voiceRecognition.onerror=(e)=>{
-    isRecording=false;if(voiceBtn){voiceBtn.textContent='🎙️ דיבור';voiceBtn.style.background='var(--blue)'}
-    if(e.error==='no-speech')showToast('לא זוהה קול, נסה שוב');
-    else showToast('שגיאת זיהוי קול: '+e.error);
-  };
-  voiceRecognition.onend=()=>{
-    isRecording=false;if(voiceBtn){voiceBtn.textContent='🎙️ דיבור';voiceBtn.style.background='var(--blue)'}
-  };
-  voiceRecognition.start();
+// Whisper API key — set this to your OpenAI key
+// To get one: https://platform.openai.com/api-keys
+const WHISPER_KEY='';  // ← הכנס כאן את ה-OpenAI API Key שלך
+
+function _showVoiceTagsInModal(transcript, voiceResults, voiceTags, textarea){
+  // Parse transcript into individual product names
+  const cleaned=transcript
+    .replace(/\b(אחד|אחת|שניים|שלושה|ארבעה|חמישה)\b/g,' ')
+    .replace(/\b(בבקשה|תוסיף|תוסיפי|צריך|צריכה|רצוני)\b/g,' ');
+  const parts=cleaned
+    .split(/[,،;]+|\s+ו(?=[א-ת])|\s+(גם|עוד|ואת|ועוד)\s+/g)
+    .map(s=>(s||'').replace(/^(את|ה|של|עם|ב|ל|מ)\s+/,'').trim())
+    .filter(s=>s&&s.length>1&&/[א-ת]/.test(s));
+  const items=[...new Set(parts)].slice(0,15);
+  if(!items.length){showToast('לא זוהו מוצרים, נסה שוב');return}
+
+  // Show as toggleable tags — all selected by default
+  voiceResults.style.display='block';
+  items.forEach(name=>{
+    // Skip if already in textarea
+    const already=textarea.value.split('\n').map(l=>l.trim()).includes(name);
+    const tag=document.createElement('span');
+    tag.className='vtag selected';
+    tag.dataset.name=name;
+    tag.textContent=ingredientToEmoji(name)+' '+name;
+    tag.style.cssText='background:var(--green-l);border:1.5px solid var(--green);border-radius:20px;padding:5px 12px;font-size:13px;cursor:pointer;user-select:none;transition:all 0.15s;display:inline-block';
+    tag.onclick=()=>{
+      const sel=tag.classList.toggle('selected');
+      tag.style.background=sel?'var(--green-l)':'var(--bg)';
+      tag.style.borderColor=sel?'var(--green)':'var(--border)';
+      tag.style.color=sel?'var(--green-d)':'var(--muted)';
+    };
+    if(already){tag.classList.remove('selected');tag.style.background='var(--bg)';tag.style.borderColor='var(--border)';tag.style.color='var(--muted)';tag.title='כבר קיים'}
+    voiceTags.appendChild(tag);
+  });
+  showToast('🎙️ '+items.length+' מוצרים זוהו — לחץ להסיר');
 }
 
-async function analyzeVoiceWithAI(transcript){
-  const analyzingBar=document.getElementById('analyzing-bar');
-  const analyzingTxt=document.getElementById('analyzing-txt');
-  if(analyzingBar)analyzingBar.style.display='flex';
-  if(analyzingTxt)analyzingTxt.textContent='מנתח דיבור עם AI...';
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:1000,
-        messages:[{role:'user',content:`אתה עוזר לרשימת קניות. המשתמש אמר: "${transcript}"\n\nחלץ את כל המוצרים שהוזכרו. החזר JSON בלבד (ללא backticks) בפורמט:\n{"items":[{"n":"שם מוצר","e":"אמוג'י מתאים","qty":"1"}]}`}]
-      })
-    });
-    const data=await res.json();
-    const text=data.content?.[0]?.text||'';
-    const clean=text.replace(/```json|```/g,'').trim();
-    const parsed=JSON.parse(clean);
-    if(parsed.items&&parsed.items.length){
-      const cat=getCat();
-      const sl=shoppingList();
-      let added=0;
-      parsed.items.forEach(item=>{
-        const key=item.n;
-        if(!sl[key]){sl[key]={e:item.e||'🛒',n:item.n,qty:item.qty||'1',checked:false};added++}
-      });
-      persistList();
-      if(activeCat==='recipes'){activeCat='super-complete';render()}else renderList();
-      showToast('🎙️ '+added+' מוצרים נוספו לרשימה');
-    } else showToast('לא זוהו מוצרים, נסה שוב');
-  }catch(e){
-    console.error(e);
-    showToast('שגיאה בניתוח הדיבור');
-  }finally{
-    if(analyzingBar)analyzingBar.style.display='none';
+function _parseModalVoice(blob, textarea, updatePreview){
+  // Use Web Speech result stored inline, or parse Whisper if key set
+  // For now parse using local voice recognition fallback via SpeechRecognition stream
+  // Since we already have the blob, use Whisper if key available, else try SR inline
+  const key=_getWhisperKey();
+  if(key){
+    const formData=new FormData();
+    const ext=blob.type.includes('mp4')?'m4a':'webm';
+    formData.append('file',blob,'rec.'+ext);
+    formData.append('model','whisper-1');
+    formData.append('language','he');
+    fetch('https://api.openai.com/v1/audio/transcriptions',{
+      method:'POST',headers:{'Authorization':'Bearer '+key},body:formData
+    }).then(r=>r.json()).then(data=>{
+      _appendVoiceToTextarea(data.text||'',textarea,updatePreview);
+    }).catch(()=>showToast('שגיאה בזיהוי קול'));
+  } else {
+    // Use inline SpeechRecognition via audio URL (not possible) — 
+    // fallback: show toast guiding user to type or use PWA
+    showToast('🎙️ להוסיף קול — פתח מהמסך הבית');
   }
+}
+
+function _appendVoiceToTextarea(transcript, textarea, updatePreview){
+  if(!transcript)return;
+  const cleaned=transcript
+    .replace(/\b(אחד|אחת|שניים|שלושה|ארבעה|חמישה)\b/g,' ')
+    .replace(/\b(בבקשה|תוסיף|תוסיפי|צריך|צריכה|רצוני)\b/g,' ');
+  const parts=cleaned
+    .split(/[,،;]+|\s+ו(?=[א-ת])|\s+(גם|עוד|ואת|ועוד)\s+/g)
+    .map(s=>(s||'').replace(/^(את|ה|של|עם|ב|ל|מ)\s+/,'').trim())
+    .filter(s=>s&&s.length>1&&/[א-ת]/.test(s));
+  const unique=[...new Set(parts)];
+  const existing=textarea.value.trim();
+  textarea.value=(existing?existing+'\n':'')+unique.join('\n');
+  updatePreview();
+  showToast('🎙️ '+unique.length+' מוצרים זוהו');
+}
+
+function startVoiceCatInput(){ _startWhisperRecording('voice-cat-btn', analyzeVoiceWithAI) }
+function startVoiceInput(){ _startWhisperRecording('voice-btn', analyzeVoiceWithAI) }
+
+function _startWhisperRecording(btnId, onTranscript){
+  if(isRecording){ _stopWhisperRecording(); return }
+  if(!_getWhisperKey()){
+    // Fallback to Web Speech API if no Whisper key set
+    _tryWebSpeech(btnId, onTranscript);
+    return;
+  }
+  const btn=document.getElementById(btnId);
+  navigator.mediaDevices.getUserMedia({audio:true})
+    .then(stream=>{
+      audioChunks=[];
+      // Pick a format Safari supports: mp4/m4a, fallback to webm for Chrome
+      const mimeType=MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':
+                     MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'';
+      mediaRecorder=new MediaRecorder(stream, mimeType?{mimeType}:{});
+      mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) audioChunks.push(e.data) };
+      mediaRecorder.onstop=async()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        isRecording=false;
+        if(btn){btn.textContent='🎙️';btn.style.color=''}
+        if(!audioChunks.length){showToast('לא הוקלט קול');return}
+        const blob=new Blob(audioChunks,{type:mimeType||'audio/webm'});
+        showToast('🤔 מעבד...');
+        await _sendToWhisper(blob, onTranscript);
+      };
+      mediaRecorder.start();
+      isRecording=true;
+      if(btn){btn.textContent='⏹';btn.style.color='#E24B4A'}
+      showToast('🎙️ מקשיב... לחץ שוב לסיום');
+      // Auto-stop after 10 seconds
+      setTimeout(()=>{ if(isRecording)_stopWhisperRecording() }, 10000);
+    })
+    .catch(err=>{
+      if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
+        showToast('❌ הרשאת מיקרופון נדחתה');_showMicHelp();
+      } else {
+        showToast('❌ שגיאת מיקרופון: '+err.message);
+      }
+    });
+}
+
+function _stopWhisperRecording(){
+  if(mediaRecorder&&mediaRecorder.state!=='inactive') mediaRecorder.stop();
+}
+
+async function _sendToWhisper(blob, onTranscript){
+  const formData=new FormData();
+  const ext=blob.type.includes('mp4')?'m4a':'webm';
+  formData.append('file', blob, 'recording.'+ext);
+  formData.append('model','whisper-1');
+  formData.append('language','he');
+  formData.append('response_format','json');
+  try{
+    const res=await fetch('https://api.openai.com/v1/audio/transcriptions',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+(_getWhisperKey())},
+      body:formData
+    });
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||res.status)}
+    const data=await res.json();
+    const transcript=(data.text||'').trim();
+    if(!transcript){showToast('לא זוהה קול, נסה שוב');return}
+    showToast('🤔 מנתח: "'+transcript.slice(0,25)+'"...');
+    await onTranscript(transcript);
+  }catch(e){
+    console.error('Whisper error:',e);
+    showToast('❌ שגיאה בזיהוי קול: '+e.message);
+  }
+}
+
+// Fallback: try Web Speech API (Chrome desktop / Android Chrome)
+function _tryWebSpeech(btnId, onTranscript){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+  const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+  if(!SR||(isSafari&&!isStandalone)){
+    // On Safari browser (not PWA) — show install prompt
+    _showPWAInstallPrompt();
+    return;
+  }
+  const btn=document.getElementById(btnId);
+  const sr=new SR();
+  sr.lang='he-IL';sr.interimResults=false;sr.maxAlternatives=1;sr.continuous=false;
+  isRecording=true;
+  if(btn){btn.textContent='⏹';btn.style.color='#E24B4A'}
+  showToast('🎙️ מקשיב... אמור שמות מוצרים');
+  sr.onresult=async(ev)=>{
+    const t=ev.results[0][0].transcript;
+    showToast('🤔 מנתח: "'+t.slice(0,25)+'"...');
+    await onTranscript(t);
+  };
+  sr.onerror=(e)=>{
+    isRecording=false;if(btn){btn.textContent='🎙️';btn.style.color=''}
+    if(e.error==='service-not-allowed'||e.error==='not-allowed'){
+      _showPWAInstallPrompt();
+    } else if(e.error==='no-speech'){
+      showToast('לא זוהה קול, נסה שוב');
+    } else {
+      showToast('שגיאה: '+e.error);
+    }
+  };
+  sr.onend=()=>{isRecording=false;if(btn){btn.textContent='🎙️';btn.style.color=''}};
+  sr.start();
+}
+
+function _showPWAInstallPrompt(){
+  const msg=document.createElement('div');
+  msg.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:400;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  msg.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:430px;direction:rtl">
+    <div style="font-size:36px;text-align:center;margin-bottom:12px">🎙️</div>
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:8px;color:#2C2C2A;text-align:center">הפעל זיהוי קול חינם</h3>
+    <p style="font-size:13px;color:#666;line-height:1.8;margin-bottom:18px;text-align:center">
+      כדי להשתמש בזיהוי קול על iPhone<br>יש להוסיף את האפליקציה למסך הבית
+    </p>
+    <div style="background:#f8f7f4;border-radius:12px;padding:14px 16px;margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:22px">1️⃣</span>
+        <span style="font-size:13px;color:#2C2C2A">לחץ על כפתור השיתוף <span style="font-size:16px">⬆️</span> בתחתית Safari</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:22px">2️⃣</span>
+        <span style="font-size:13px;color:#2C2C2A">בחר <b>"הוסף למסך הבית"</b></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">3️⃣</span>
+        <span style="font-size:13px;color:#2C2C2A">פתח את האפליקציה מהאייקון — זיהוי הקול יעבוד! ✅</span>
+      </div>
+    </div>
+    <button onclick="this.closest('[style]').remove()" style="width:100%;padding:13px;border-radius:12px;background:#1D9E75;color:#fff;border:none;font-size:15px;font-weight:600;cursor:pointer">הבנתי</button>
+  </div>`;
+  msg.onclick=e=>{if(e.target===msg)msg.remove()};
+  document.body.appendChild(msg);
+}
+
+function _showWhisperKeyPrompt(){
+  const modal=document.createElement('div');modal.className='modal-wrap';
+  modal.innerHTML=`<div class="modal" style="text-align:right">
+    <div style="font-size:28px;text-align:center;margin-bottom:8px">🎙️</div>
+    <h3 style="margin-bottom:8px">הפעלת זיהוי קול על iPhone</h3>
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px">
+      Safari על iPhone לא תומך בזיהוי קול ישיר.<br>
+      כדי להפעיל את הפיצ'ר יש להזין <b>OpenAI API Key</b> חד-פעמי.<br><br>
+      1. היכנס ל־<b>platform.openai.com/api-keys</b><br>
+      2. צור מפתח חדש (חינמי לשימוש קל)<br>
+      3. הדבק אותו כאן:
+    </p>
+    <input type="text" id="whisper-key-input" placeholder="sk-..." style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px;margin-bottom:10px;direction:ltr;background:var(--bg);color:var(--text)">
+    <div class="modal-btns">
+      <button class="btn-cancel" id="wk-cancel">ביטול</button>
+      <button class="btn-add" style="background:var(--green)" id="wk-save">שמור והפעל</button>
+    </div>
+  </div>`;
+  modal.querySelector('#wk-cancel').onclick=()=>modal.remove();
+  modal.querySelector('#wk-save').onclick=()=>{
+    const key=modal.querySelector('#whisper-key-input').value.trim();
+    if(!key.startsWith('sk-')){showToast('מפתח לא תקין (צריך להתחיל ב-sk-)');return}
+    // Save key to the runtime variable (not localStorage for security)
+    window._whisperKey=key;
+    modal.remove();
+    showToast('✅ מפתח נשמר! לחץ שוב על 🎙️');
+  };
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  document.body.appendChild(modal);
+  setTimeout(()=>modal.querySelector('#whisper-key-input').focus(),150);
+}
+
+function _showMicHelp(){
+  const msg=document.createElement('div');
+  msg.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px';
+  msg.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:340px;width:100%;direction:rtl">
+    <div style="font-size:28px;text-align:center;margin-bottom:10px">🎙️</div>
+    <h3 style="font-size:15px;font-weight:600;margin-bottom:10px;color:#2C2C2A">איך לאפשר גישה למיקרופון</h3>
+    <p style="font-size:12px;color:#888;line-height:1.7;margin-bottom:12px">
+      <b>Safari / iOS:</b> הגדרות ← Safari ← מיקרופון ← אפשר<br><br>
+      <b>Chrome:</b> לחץ על 🔒 בכתובת ← Permissions ← Microphone ← Allow
+    </p>
+    <button onclick="this.closest('[style]').remove()" style="width:100%;padding:11px;border-radius:10px;background:#1D9E75;color:#fff;border:none;font-size:14px;font-weight:500;cursor:pointer">הבנתי</button>
+  </div>`;
+  msg.onclick=e=>{if(e.target===msg)msg.remove()};
+  document.body.appendChild(msg);
+}
+
+// Override WHISPER_KEY with runtime key if set
+const _origStartWhisper=_startWhisperRecording;
+function _getWhisperKey(){ return WHISPER_KEY||(window._whisperKey||'') }
+
+function analyzeVoiceWithAI(transcript){
+  // Parse locally — no external API call, no CORS
+  const cleaned = transcript
+    .replace(/\b(אחד|אחת|שניים|שלושה|ארבעה|חמישה|שלש|ארבע|חמש)\b/g, ' ')
+    .replace(/\b(בבקשה|תוסיף|תוסיפי|תכניס|רצוני|אני צריך|אני צריכה|צריך|צריכה)\b/g, ' ');
+
+  const parts = cleaned
+    .split(/[,،,،؛;]+|\s+ו(?=[א-ת])|\s+(גם|עוד|ואת|ואז|ועוד)\s+/g)
+    .map(s => (s||'').replace(/^(את|ה|של|עם|ב|ל|מ)\s+/, '').trim())
+    .filter(s => s && s.length > 1 && /[א-ת]/.test(s));
+
+  const items = [...new Set(parts)].slice(0, 15).map(n => ({
+    n: n.replace(/\s+/g, ' ').trim(),
+    e: ingredientToEmoji(n),
+    qty: '1'
+  })).filter(i => i.n.length > 1);
+
+  if(!items.length){showToast('לא זוהו מוצרים, נסה שוב');return}
+
+  // Add as user products in the current category (appear in product panel, not list)
+  items.forEach(item => {
+    const existing = getAllProducts(activeCat).find(p => p.n === item.n);
+    if(!existing) saveUserProduct(activeCat, {e: item.e, n: item.n});
+  });
+  renderProducts();
+  showToast('🎙️ ' + items.length + ' מוצרים נוספו לפאנל — לחץ להוסיף לסל');
 }
 
 /* ═══════════════════════════════════════════════
@@ -1143,6 +1416,17 @@ function checkAllInList(){
 /* ═══════════════════════════════════════════════
    BOOT
 ═══════════════════════════════════════════════ */
+// Show install banner in Safari browser (not PWA)
+(function(){
+  const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+  const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent)&&/iphone|ipad/i.test(navigator.userAgent);
+  if(isSafari&&!isStandalone&&!sessionStorage.getItem('pwa-banner-dismissed')){
+    const banner=document.createElement('div');
+    banner.style.cssText='background:#1D9E75;color:#fff;padding:8px 14px;display:flex;align-items:center;gap:8px;font-size:12px;flex-shrink:0;position:relative';
+    banner.innerHTML=`<span style="flex:1">💡 הוסף למסך הבית לחוויה מלאה + זיהוי קול ⬆️</span><button onclick="sessionStorage.setItem('pwa-banner-dismissed','1');this.parentElement.remove()" style="background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;cursor:pointer">✕</button>`;
+    document.getElementById('app').insertAdjacentElement('afterbegin',banner);
+  }
+})();
 render();
 </script>
 </body>
