@@ -209,10 +209,8 @@ body{font-family:-apple-system,'Heebo',sans-serif;direction:rtl;background:var(-
    DATA
 ═══════════════════════════════════════════════ */
 const CATS=[
-  {id:'super-complete',label:'סופר – השלמה',icon:'🧴',color:'#1D9E75',
-   products:[{e:'🥛',n:'חלב'},{e:'🍞',n:'לחם'},{e:'🧀',n:'גבינה צהובה'},{e:'🥚',n:'ביצים'},{e:'🧅',n:'בצל'},{e:'🍋',n:'לימון'},{e:'🧈',n:'חמאה'},{e:'🍶',n:'שמן זית'},{e:'🫙',n:'רסק עגבניות'},{e:'🧃',n:'מיץ'},{e:'☕',n:'קפה'},{e:'🍚',n:'אורז'}]},
-  {id:'super-big',label:'סופר – קניה גדולה',icon:'🛒',color:'#0F6E56',
-   products:[{e:'🍗',n:'עוף'},{e:'🥩',n:'בשר'},{e:'🐟',n:'דג'},{e:'🥗',n:'ירקות מעורב'},{e:'🍅',n:'עגבניות'},{e:'🥒',n:'מלפפון'},{e:'🧻',n:'נייר טואלט'},{e:'🧼',n:'סבון'},{e:'🫧',n:'אבקת כביסה'},{e:'🍪',n:'עוגיות'},{e:'🥜',n:'טחינה'},{e:'🫒',n:'זיתים'},{e:'🧆',n:'חומוס'},{e:'🥫',n:'שימורים'},{e:'🍿',n:'פופקורן'}]},
+  {id:'super',label:'סופר',icon:'🛒',color:'#1D9E75',
+   products:[{e:'🥛',n:'חלב'},{e:'🍞',n:'לחם'},{e:'🧀',n:'גבינה צהובה'},{e:'🥚',n:'ביצים'},{e:'🧅',n:'בצל'},{e:'🍋',n:'לימון'},{e:'🧈',n:'חמאה'},{e:'🍶',n:'שמן זית'},{e:'🫙',n:'רסק עגבניות'},{e:'🧃',n:'מיץ'},{e:'☕',n:'קפה'},{e:'🍚',n:'אורז'},{e:'🍗',n:'עוף'},{e:'🥩',n:'בשר'},{e:'🐟',n:'דג'},{e:'🍅',n:'עגבניות'},{e:'🥒',n:'מלפפון'},{e:'🧻',n:'נייר טואלט'},{e:'🧼',n:'סבון'},{e:'🫧',n:'אבקת כביסה'},{e:'🥜',n:'טחינה'},{e:'🫒',n:'זיתים'},{e:'🧆',n:'חומוס'},{e:'🥫',n:'שימורים'}]},
   {id:'bbq',label:'על האש',icon:'🔥',color:'#993C1D',
    products:[{e:'🥩',n:'סטייק'},{e:'🌭',n:'נקניקיות'},{e:'🍗',n:'כנפיים'},{e:'🌽',n:'תירס'},{e:'🧅',n:'בצל לגריל'},{e:'🍆',n:'חציל'},{e:'🍄',n:'פטריות'},{e:'🧄',n:'שום'},{e:'🫙',n:'רוטב ברביקיו'},{e:'🥖',n:'פיתות'},{e:'🥗',n:'סלט קצוץ'},{e:'🧂',n:'תבלינים'}]},
   {id:'beach',label:'ים',icon:'🏖️',color:'#185FA5',
@@ -224,7 +222,7 @@ const CATS=[
   {id:'recipes',label:'מתכונים',icon:'🍳',color:'#C05621',products:[]}
 ];
 
-let activeCat='super-complete';
+let activeCat='super';
 let allLists=load('lists_by_cat',{});   // {catId: {itemName: item, ...}, ...}
 function shoppingList(){return allLists[activeCat]||(allLists[activeCat]={});}
 let dragItem=null,dragGhost=null,touchProduct=null;
@@ -242,7 +240,11 @@ function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}
 function getUserProducts(id){return load('extra_'+id,[])}
 function saveUserProduct(id,p){const a=getUserProducts(id);a.push(p);store('extra_'+id,a)}
 function deleteUserProduct(id,n){store('extra_'+id,getUserProducts(id).filter(p=>p.n!==n))}
-function getAllProducts(id){const cat=getAllCats().find(c=>c.id===id);return[...(cat?.products||[]),...getUserProducts(id)]}
+function getHiddenProducts(id){return load('hidden_'+id,[])}
+function hideBuiltinProduct(id,n){const h=getHiddenProducts(id);if(!h.includes(n)){h.push(n);store('hidden_'+id,h)}}
+function unhideBuiltinProduct(id,n){store('hidden_'+id,getHiddenProducts(id).filter(x=>x!==n))}
+function getAllProducts(id){const cat=getAllCats().find(c=>c.id===id);const hidden=getHiddenProducts(id);return[...(cat?.products||[]).filter(p=>!hidden.includes(p.n)),...getUserProducts(id)]}
+
 function getHistory(){return load('shop_history',[])}
 function saveToHistory(catId,items){
   if(!items.length)return;
@@ -361,16 +363,34 @@ function renderProducts(){
   getAllProducts(cat.id).forEach(p=>{
     const div=document.createElement('div');div.className='product-item';
     const isUser=userNames.includes(p.n);
-    div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">לחץ להוסיף</div></div>${isUser?`<button class="remove-product-btn" data-n="${p.n}">×</button>`:''}`;
+    div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">לחץ להוסיף</div></div><button class="remove-product-btn" data-n="${p.n}">×</button>`;
     div.addEventListener('click',()=>addToList(p));
     div.setAttribute('draggable','true');
     div.addEventListener('dragstart',ev=>{dragItem=p;ev.dataTransfer.effectAllowed='copy';createGhost(p,ev.clientX,ev.clientY)});
     div.addEventListener('dragend',()=>{removeGhost();dragItem=null});
     div.addEventListener('touchstart',ev=>touchStart(ev,p),{passive:true});
     const rb=div.querySelector('.remove-product-btn');
-    if(rb)rb.onclick=e=>{e.stopPropagation();deleteUserProduct(cat.id,p.n);renderProducts()};
+    if(rb)rb.onclick=e=>{
+      e.stopPropagation();
+      if(isUser)deleteUserProduct(cat.id,p.n);
+      else hideBuiltinProduct(cat.id,p.n);
+      renderProducts();
+    };
     list.appendChild(div);
   });
+
+  // Show restore button if there are hidden builtin products
+  const hidden=getHiddenProducts(cat.id);
+  const hiddenBuiltin=(cat.products||[]).filter(p=>hidden.includes(p.n));
+  if(hiddenBuiltin.length){
+    const restoreBtn=document.createElement('div');
+    restoreBtn.style.cssText='padding:8px 12px;text-align:center';
+    restoreBtn.innerHTML=`<button style="font-size:11px;color:var(--muted);background:transparent;border:1px dashed var(--border);border-radius:20px;padding:4px 12px;cursor:pointer">↩ שחזר מוצרים מוסתרים (${hiddenBuiltin.length})</button>`;
+    restoreBtn.querySelector('button').onclick=()=>{
+      store('hidden_'+cat.id,[]);renderProducts();showToast('✅ מוצרים שוחזרו');
+    };
+    list.appendChild(restoreBtn);
+  }
 }
 
 /* ═══════════════════════════════════════════════
@@ -600,9 +620,9 @@ function addSelectedIngredients(recipe,sel){
 
 function addIngredientsToSuperBig(recipe,ingredients){
   if(!ingredients.length){showToast('לא נבחרו מרכיבים');return}
-  // Save to super-big with recipe name as sub-group key
-  if(!allLists['super-big'])allLists['super-big']={};
-  const sl=allLists['super-big'];
+  // Save to super with recipe name as sub-group key
+  if(!allLists['super'])allLists['super']={};
+  const sl=allLists['super'];
   ingredients.forEach(ing=>{
     // Use unique key: ingredient name + recipe (to avoid collisions across recipes)
     const key=ing.n+'__'+recipe.id;
@@ -610,8 +630,28 @@ function addIngredientsToSuperBig(recipe,ingredients){
   });
   persistList();
   // Switch to super-big to show result
-  activeCat='super-big';render();
-  showToast('✅ '+ingredients.length+' מרכיבים נוספו לסופר – קניה גדולה');
+  activeCat='super';render();
+  showToast('✅ '+ingredients.length+' מרכיבים נוספו לסופר');
+}
+
+function analyzeFromUrl(){
+  const urlInput=document.getElementById('site-url');
+  const url=(urlInput?.value||'').trim();
+  if(!url){showToast('נא להכניס קישור לאתר');return}
+  if(!url.startsWith('http')){showToast('קישור לא תקין');return}
+  // Save URL to paste-source-url so it gets saved with the recipe
+  const sourceInput=document.getElementById('paste-source-url');
+  if(sourceInput)sourceInput.value=url;
+  // Open the URL in new tab so user can copy text
+  window.open(url,'_blank');
+  // Focus the paste textarea and show guidance
+  const pasteText=document.getElementById('paste-text');
+  const pasteTitle=document.getElementById('paste-title');
+  if(pasteText){
+    pasteText.focus();
+    pasteText.placeholder='חזרת? עכשיו הדבק כאן את הטקסט מהאתר (Ctrl+A ← Ctrl+C ← חזור לכאן ← Ctrl+V)';
+  }
+  showToast('✅ האתר נפתח — העתק את הטקסט והדבק למטה');
 }
 
 function analyzeFromText(){
@@ -1357,7 +1397,7 @@ function deleteCat(catId){
   if(!confirm('למחוק את הקטגוריה?'))return;
   userCats=userCats.filter(c=>c.id!==catId);store('user_cats',userCats);
   delete allLists[catId];persistList();
-  activeCat='super-complete';render();showToast('🗑 קטגוריה נמחקה');
+  activeCat='super';render();showToast('🗑 קטגוריה נמחקה');
 }
 
 /* ═══════════════════════════════════════════════
