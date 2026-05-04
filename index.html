@@ -1967,22 +1967,40 @@ document.getElementById('email-btn').onclick=async()=>{
   const email=document.getElementById('auth-email').value.trim();
   const pass=document.getElementById('auth-pass').value.trim();
   const errEl=document.getElementById('auth-error');
+  const btn=document.getElementById('email-btn');
   errEl.textContent='';
   if(!email||!pass){errEl.textContent='נא למלא אימייל וסיסמה';return}
+  if(!window._fbSignInEmail){errEl.textContent='טוען... נסה שוב';return}
+  btn.disabled=true;btn.style.opacity='0.7';
   try{
     if(authMode==='login') await window._fbSignInEmail(email,pass);
     else await window._fbSignUpEmail(email,pass);
   }catch(e){
-    const msgs={'auth/user-not-found':'משתמש לא נמצא','auth/wrong-password':'סיסמה שגויה','auth/email-already-in-use':'האימייל כבר רשום','auth/weak-password':'סיסמה חלשה מדי','auth/invalid-email':'אימייל לא תקין','auth/invalid-credential':'פרטי התחברות שגויים'};
+    const msgs={
+      'auth/user-not-found':'משתמש לא נמצא',
+      'auth/wrong-password':'סיסמה שגויה',
+      'auth/email-already-in-use':'האימייל כבר רשום — נסה להתחבר',
+      'auth/weak-password':'סיסמה חלשה מדי (לפחות 6 תווים)',
+      'auth/invalid-email':'אימייל לא תקין',
+      'auth/invalid-credential':'אימייל או סיסמה שגויים'
+    };
     errEl.textContent=msgs[e.code]||e.message;
+  }finally{
+    btn.disabled=false;btn.style.opacity='1';
   }
 };
 
 document.getElementById('auth-toggle-mode').onclick=()=>{
   authMode=authMode==='login'?'signup':'login';
-  document.getElementById('email-btn').textContent=authMode==='login'?'התחברות':'הרשמה';
-  document.getElementById('auth-toggle-mode').textContent=authMode==='login'?'הירשם עכשיו':'כבר רשום? התחבר';
+  const isLogin=authMode==='login';
+  document.getElementById('email-btn').textContent=isLogin?'התחברות':'הרשמה';
+  document.getElementById('auth-toggle-mode').textContent=isLogin?'הירשם עכשיו':'כבר רשום? התחבר';
   document.getElementById('auth-error').textContent='';
+  // Update input autocomplete for signup
+  const passInput=document.getElementById('auth-pass');
+  if(passInput)passInput.autocomplete=isLogin?'current-password':'new-password';
+  const emailInput=document.getElementById('auth-email');
+  if(emailInput)emailInput.focus();
 };
 
 // Add logout button to app (injected after render)
@@ -2018,18 +2036,26 @@ function bootApp(){
 
 // ── Auth state listener ──
 window._onAuthReady=async(user)=>{
+  // Hide login screen regardless
+  document.getElementById('auth-screen').classList.add('hidden');
+
   if(!user){
     // Not logged in — show login screen
     document.getElementById('auth-screen').classList.remove('hidden');
     document.getElementById('app').style.display='none';
     return;
   }
+
   // Logged in — check if onboarding done
   try{
+    if(!window._fbGetDoc){
+      // Firebase not ready yet — retry
+      setTimeout(()=>window._onAuthReady(user), 200);
+      return;
+    }
     const snap=await window._fbGetDoc('users/'+user.uid);
     if(snap.exists()&&snap.data().onboardingDone){
       // Returning user — go straight to app
-      document.getElementById('auth-screen').classList.add('hidden');
       bootApp();
     } else {
       // New user — show onboarding
@@ -2037,7 +2063,7 @@ window._onAuthReady=async(user)=>{
     }
   }catch(e){
     console.error('Firestore read error:',e);
-    document.getElementById('auth-screen').classList.add('hidden');
+    // On error, go to app anyway (don't trap user on login screen)
     bootApp();
   }
 };
