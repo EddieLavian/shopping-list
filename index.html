@@ -1707,8 +1707,9 @@ function analyzeVoiceWithAI(transcript){
 let userCats=load('user_cats',[]);
 
 function getAllCats(){
-  // Merge built-in + user cats, preserving recipes at end
-  const builtin=CATS.filter(c=>c.id!=='recipes');
+  const hiddenCats=load('hidden_cats',[]);
+  // Always show super and recipes; hide optional cats not selected in onboarding
+  const builtin=CATS.filter(c=>c.id!=='recipes'&&!hiddenCats.includes(c.id));
   const combined=[...builtin,...userCats,CATS.find(c=>c.id==='recipes')];
   return combined;
 }
@@ -1932,7 +1933,18 @@ async function finishOnboarding(){
     await window._fbSetDoc('users/'+user.uid, profile, true);
   }catch(e){console.error('Firestore save error:',e)}
 
-  // Apply custom categories
+  // Hide optional categories the user did NOT select
+  // CATS that are optional (not super, recipes):
+  const optionalCatIds=['bbq','beach','birthday','picnic'];
+  optionalCatIds.forEach(catId=>{
+    if(!obAnswers.categories.has(catId)){
+      // Hide all builtin products for this cat, and mark it hidden
+      const hidden=load('hidden_cats',[]);
+      if(!hidden.includes(catId)){hidden.push(catId);store('hidden_cats',hidden);}
+    }
+  });
+
+  // Add custom categories
   if(obAnswers.customText){
     obAnswers.customText.split(/[,،\n]/).map(s=>s.trim()).filter(Boolean).forEach(name=>{
       const id='user-cat-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
@@ -1941,10 +1953,19 @@ async function finishOnboarding(){
     store('user_cats',userCats);
   }
 
-  // Apply custom products mode
-  if(obAnswers.productsMode==='custom'&&obAnswers.customProducts){
-    const lines=obAnswers.customProducts.split('\n').map(s=>s.trim()).filter(Boolean);
-    lines.forEach(name=>saveUserProduct('super',{e:ingredientToEmoji(name),n:name}));
+  // Apply custom products mode — if user wants to build their own, hide all builtin products
+  if(obAnswers.productsMode==='custom'){
+    // Hide all builtin products in super
+    const superCat=CATS.find(c=>c.id==='super');
+    if(superCat){
+      const toHide=(superCat.products||[]).map(p=>p.n);
+      store('hidden_super', toHide);
+    }
+    // Add user's custom products
+    if(obAnswers.customProducts){
+      const lines=obAnswers.customProducts.split('\n').map(s=>s.trim()).filter(Boolean);
+      lines.forEach(name=>saveUserProduct('super',{e:ingredientToEmoji(name),n:name}));
+    }
   }
 
   document.getElementById('ob-screen').classList.add('hidden');
