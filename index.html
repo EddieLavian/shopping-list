@@ -7,6 +7,47 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="רשימת קניות">
 <meta name="theme-color" content="#1D9E75">
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAv7WW59wVle2Ee5z3jJf7qtI9iRAaM4uY",
+    authDomain: "shopping-list-app-26173.firebaseapp.com",
+    projectId: "shopping-list-app-26173",
+    storageBucket: "shopping-list-app-26173.firebasestorage.app",
+    messagingSenderId: "642390707407",
+    appId: "1:642390707407:web:8564b421dfabfd21d27bba",
+    measurementId: "G-3LS8TZ06M5"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window._fbSignInGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
+  window._fbSignInEmail = (e,p) => signInWithEmailAndPassword(auth, e, p);
+  window._fbSignUpEmail = (e,p) => createUserWithEmailAndPassword(auth, e, p);
+  window._fbSignOut = () => signOut(auth);
+  window._fbGetDoc = (path) => getDoc(doc(db, path));
+  window._fbSetDoc = (path, data, merge) => setDoc(doc(db, path), data, merge?{merge:true}:{});
+  window._fbUpdateDoc = (path, data) => updateDoc(doc(db, path), data);
+
+  // Wait for main script to be ready before firing auth state
+  function fireAuthReady(user) {
+    window._fbUser = user;
+    if (typeof window._onAuthReady === 'function') {
+      window._onAuthReady(user);
+    } else {
+      // Main script not ready yet — retry
+      setTimeout(() => fireAuthReady(user), 100);
+    }
+  }
+  onAuthStateChanged(auth, fireAuthReady);
+</script>
+
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZYT5GBMVNZ"></script>
 <script>
@@ -20,6 +61,50 @@
 <title>רשימת קניות</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+/* ── Auth screens ── */
+.auth-screen{position:fixed;inset:0;background:#f8f7f4;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;direction:rtl}
+.auth-screen.hidden{display:none}
+.auth-logo{font-size:52px;margin-bottom:8px}
+.auth-title{font-size:24px;font-weight:700;color:#2C2C2A;margin-bottom:4px;text-align:center}
+.auth-sub{font-size:14px;color:#888;margin-bottom:32px;text-align:center}
+.auth-card{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+.auth-btn{width:100%;padding:13px;border-radius:12px;border:none;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;transition:opacity 0.15s}
+.auth-btn:active{opacity:0.8}
+.auth-btn.google{background:#fff;border:1.5px solid #dadce0;color:#3c4043}
+.auth-btn.primary{background:#1D9E75;color:#fff}
+.auth-btn.secondary{background:#f8f7f4;color:#2C2C2A}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:#aaa;font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#eee}
+.auth-input{width:100%;border:1.5px solid #e5e5e5;border-radius:10px;padding:11px 14px;font-size:15px;background:#fafafa;color:#2C2C2A;direction:rtl;margin-bottom:10px;outline:none;transition:border 0.2s}
+.auth-input:focus{border-color:#1D9E75;background:#fff}
+.auth-error{font-size:12px;color:#E24B4A;text-align:center;margin-top:6px;min-height:18px}
+.auth-toggle{font-size:13px;color:#888;text-align:center;margin-top:14px}
+.auth-toggle span{color:#1D9E75;cursor:pointer;font-weight:600}
+
+/* ── Onboarding ── */
+.ob-screen{position:fixed;inset:0;background:#f8f7f4;z-index:999;display:flex;flex-direction:column;direction:rtl;overflow-y:auto}
+.ob-screen.hidden{display:none}
+.ob-header{padding:24px 20px 0;text-align:center}
+.ob-step{font-size:11px;color:#aaa;font-weight:600;letter-spacing:1px;margin-bottom:8px}
+.ob-title{font-size:22px;font-weight:700;color:#2C2C2A;margin-bottom:6px}
+.ob-sub{font-size:14px;color:#888;line-height:1.6}
+.ob-body{padding:20px;flex:1}
+.ob-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.ob-option{background:#fff;border:2px solid #e5e5e5;border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.ob-option.selected{border-color:#1D9E75;background:#E1F5EE}
+.ob-option .ob-icon{font-size:28px;margin-bottom:6px}
+.ob-option .ob-label{font-size:13px;font-weight:600;color:#2C2C2A}
+.ob-option.selected .ob-label{color:#085041}
+.ob-custom-input{width:100%;border:1.5px solid #e5e5e5;border-radius:10px;padding:11px 14px;font-size:14px;background:#fff;direction:rtl;outline:none;margin-top:4px;transition:border 0.2s}
+.ob-custom-input:focus{border-color:#1D9E75}
+.ob-footer{padding:16px 20px 32px;display:flex;gap:10px}
+.ob-btn{flex:1;padding:14px;border-radius:14px;border:none;font-size:15px;font-weight:600;cursor:pointer}
+.ob-btn.next{background:#1D9E75;color:#fff}
+.ob-btn.back{background:#f0f0ee;color:#666}
+.ob-progress{display:flex;gap:6px;justify-content:center;padding-top:16px}
+.ob-dot{width:8px;height:8px;border-radius:50%;background:#ddd;transition:background 0.2s}
+.ob-dot.active{background:#1D9E75}
 :root{
   --green:#1D9E75;--green-l:#E1F5EE;--green-d:#085041;
   --amber:#BA7517;--amber-l:#FAEEDA;
@@ -193,6 +278,37 @@ body{font-family:-apple-system,'Heebo',sans-serif;direction:rtl;background:var(-
 </style>
 </head>
 <body>
+<!-- ══ LOGIN SCREEN ══ -->
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-logo">🛒</div>
+  <div class="auth-title">רשימת קניות</div>
+  <div class="auth-sub">האפליקציה החכמה לניהול קניות</div>
+  <div class="auth-card">
+    <button class="auth-btn google" id="google-btn">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/></svg>
+      המשך עם Google
+    </button>
+    <div class="auth-divider">או</div>
+    <input class="auth-input" id="auth-email" type="email" placeholder="אימייל" autocomplete="email">
+    <input class="auth-input" id="auth-pass" type="password" placeholder="סיסמה (לפחות 6 תווים)" autocomplete="current-password">
+    <button class="auth-btn primary" id="email-btn">התחברות</button>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-toggle">חדש פה? <span id="auth-toggle-mode">הירשם עכשיו</span></div>
+  </div>
+</div>
+
+<!-- ══ ONBOARDING ══ -->
+<div class="ob-screen hidden" id="ob-screen">
+  <div class="ob-header">
+    <div class="ob-progress" id="ob-progress"></div>
+  </div>
+  <div class="ob-body" id="ob-body"></div>
+  <div class="ob-footer">
+    <button class="ob-btn back" id="ob-back">← אחורה</button>
+    <button class="ob-btn next" id="ob-next">הבא →</button>
+  </div>
+</div>
+
 <div class="app" id="app">
   <div class="header">
     <div class="header-row">
@@ -1685,10 +1801,208 @@ function checkAllInList(){
 }
 
 /* ═══════════════════════════════════════════════
-   BOOT
+   AUTH & ONBOARDING
 ═══════════════════════════════════════════════ */
-// Show install banner in Safari browser (not PWA)
-(function(){
+
+// ── Onboarding steps ──
+const OB_STEPS=[
+  {
+    id:'categories',
+    title:'איזה סוגי קניות אתה מתכנן?',
+    sub:'סופר ומתכונים תמיד כלולים. בחר קטגוריות נוספות שמתאימות לך:',
+    type:'multi',
+    options:[
+      {id:'bbq',icon:'🔥',label:'על האש'},
+      {id:'beach',icon:'🏖️',label:'ים'},
+      {id:'birthday',icon:'🎂',label:'ימי הולדת'},
+      {id:'picnic',icon:'🧺',label:'פיקניק'},
+    ],
+    hasCustom:true,
+    customPlaceholder:'קטגוריה אחרת... (למשל: קמפינג, חגים)'
+  },
+  {
+    id:'products',
+    title:'איך תרצה להתחיל?',
+    sub:'בחר כיצד למלא את המוצרים בכל קטגוריה:',
+    type:'single',
+    options:[
+      {id:'default',icon:'✅',label:'סל מוצרים בסיסי','desc':'נמלא מוצרים נפוצים עבורך'},
+      {id:'custom',icon:'✏️',label:'אבנה לבד','desc':'אזין את המוצרים שלי בעצמי'},
+    ]
+  }
+];
+
+let obStep=0;
+let obAnswers={categories:new Set(['super','recipes']), productsMode:'default', customText:''};
+
+function showOnboarding(){
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('ob-screen').classList.remove('hidden');
+  renderObStep();
+}
+
+function renderObStep(){
+  const step=OB_STEPS[obStep];
+  const body=document.getElementById('ob-body');
+  const progress=document.getElementById('ob-progress');
+  const backBtn=document.getElementById('ob-back');
+  const nextBtn=document.getElementById('ob-next');
+
+  // Progress dots
+  progress.innerHTML=OB_STEPS.map((_,i)=>`<div class="ob-dot${i===obStep?' active':''}"></div>`).join('');
+
+  backBtn.style.display=obStep===0?'none':'';
+  nextBtn.textContent=obStep===OB_STEPS.length-1?'סיים ✓':'הבא →';
+
+  let html=`<div class="ob-step">שלב ${obStep+1} מתוך ${OB_STEPS.length}</div>
+    <div class="ob-title">${step.title}</div>
+    <div class="ob-sub" style="margin-bottom:20px">${step.sub}</div>`;
+
+  if(step.type==='multi'||step.type==='single'){
+    html+=`<div class="ob-options">`;
+    step.options.forEach(opt=>{
+      const sel=step.type==='multi'?obAnswers.categories.has(opt.id):obAnswers.productsMode===opt.id;
+      html+=`<div class="ob-option${sel?' selected':''}" data-id="${opt.id}">
+        <div class="ob-icon">${opt.icon}</div>
+        <div class="ob-label">${opt.label}</div>
+        ${opt.desc?`<div style="font-size:11px;color:#999;margin-top:4px">${opt.desc}</div>`:''}
+      </div>`;
+    });
+    html+=`</div>`;
+    if(step.hasCustom){
+      html+=`<input class="ob-custom-input" id="ob-custom" placeholder="${step.customPlaceholder}" value="${obAnswers.customText||''}">`;
+    }
+    // Show custom products textarea if "build myself" selected
+    if(step.id==='products'&&obAnswers.productsMode==='custom'){
+      html+=`<div style="margin-top:12px">
+        <div style="font-size:12px;color:#888;margin-bottom:6px">הזן מוצרים — <b>מוצר אחד בכל שורה</b>:</div>
+        <textarea id="ob-custom-products" rows="6" style="width:100%;border:1.5px solid #e5e5e5;border-radius:10px;padding:10px 12px;font-size:14px;direction:rtl;resize:none;font-family:inherit;outline:none;background:#fff" placeholder="חלב&#10;לחם&#10;ביצים&#10;גבינה...">${obAnswers.customProducts||''}</textarea>
+      </div>`;
+    }
+  }
+
+  body.innerHTML=html;
+
+  // Bind option clicks
+  body.querySelectorAll('.ob-option').forEach(el=>{
+    el.onclick=()=>{
+      const id=el.dataset.id;
+      if(step.type==='multi'){
+        // super & recipes always stay
+        if(id==='super'||id==='recipes')return;
+        if(obAnswers.categories.has(id))obAnswers.categories.delete(id);
+        else obAnswers.categories.add(id);
+      } else {
+        obAnswers.productsMode=id;
+      }
+      renderObStep();
+    };
+  });
+  const customInput=body.querySelector('#ob-custom');
+  if(customInput)customInput.oninput=e=>{obAnswers.customText=e.target.value};
+  const customProds=body.querySelector('#ob-custom-products');
+  if(customProds)customProds.oninput=e=>{obAnswers.customProducts=e.target.value};
+}
+
+document.getElementById('ob-next').onclick=()=>{
+  if(obStep<OB_STEPS.length-1){obStep++;renderObStep()}
+  else finishOnboarding();
+};
+document.getElementById('ob-back').onclick=()=>{
+  if(obStep>0){obStep--;renderObStep()}
+};
+
+async function finishOnboarding(){
+  const user=window._fbUser;
+  // Build user profile
+  const profile={
+    uid:user.uid,
+    displayName:user.displayName||user.email?.split('@')[0]||'משתמש',
+    email:user.email||'',
+    categories:[...obAnswers.categories],
+    productsMode:obAnswers.productsMode,
+    customCategories:obAnswers.customText?obAnswers.customText.split(/[,،\n]/).map(s=>s.trim()).filter(Boolean):[],
+    customProducts:obAnswers.productsMode==='custom'?(obAnswers.customProducts||'').split('\n').map(s=>s.trim()).filter(Boolean):[],
+    onboardingDone:true,
+    createdAt:new Date().toISOString()
+  };
+
+  // Save to Firestore
+  try{
+    await window._fbSetDoc('users/'+user.uid, profile, true);
+  }catch(e){console.error('Firestore save error:',e)}
+
+  // Apply custom categories
+  if(obAnswers.customText){
+    obAnswers.customText.split(/[,،\n]/).map(s=>s.trim()).filter(Boolean).forEach(name=>{
+      const id='user-cat-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+      userCats.push({id,label:name,icon:'🛒',color:'#1D9E75',products:[],isUserCat:true});
+    });
+    store('user_cats',userCats);
+  }
+
+  // Apply custom products mode
+  if(obAnswers.productsMode==='custom'&&obAnswers.customProducts){
+    const lines=obAnswers.customProducts.split('\n').map(s=>s.trim()).filter(Boolean);
+    lines.forEach(name=>saveUserProduct('super',{e:ingredientToEmoji(name),n:name}));
+  }
+
+  document.getElementById('ob-screen').classList.add('hidden');
+  bootApp();
+}
+
+// ── Auth logic ──
+let authMode='login'; // or 'signup'
+
+document.getElementById('google-btn').onclick=async()=>{
+  try{
+    await window._fbSignInGoogle();
+    // onAuthStateChanged will handle next step
+  }catch(e){
+    document.getElementById('auth-error').textContent='שגיאה: '+e.message;
+  }
+};
+
+document.getElementById('email-btn').onclick=async()=>{
+  const email=document.getElementById('auth-email').value.trim();
+  const pass=document.getElementById('auth-pass').value.trim();
+  const errEl=document.getElementById('auth-error');
+  errEl.textContent='';
+  if(!email||!pass){errEl.textContent='נא למלא אימייל וסיסמה';return}
+  try{
+    if(authMode==='login') await window._fbSignInEmail(email,pass);
+    else await window._fbSignUpEmail(email,pass);
+  }catch(e){
+    const msgs={'auth/user-not-found':'משתמש לא נמצא','auth/wrong-password':'סיסמה שגויה','auth/email-already-in-use':'האימייל כבר רשום','auth/weak-password':'סיסמה חלשה מדי','auth/invalid-email':'אימייל לא תקין','auth/invalid-credential':'פרטי התחברות שגויים'};
+    errEl.textContent=msgs[e.code]||e.message;
+  }
+};
+
+document.getElementById('auth-toggle-mode').onclick=()=>{
+  authMode=authMode==='login'?'signup':'login';
+  document.getElementById('email-btn').textContent=authMode==='login'?'התחברות':'הרשמה';
+  document.getElementById('auth-toggle-mode').textContent=authMode==='login'?'הירשם עכשיו':'כבר רשום? התחבר';
+  document.getElementById('auth-error').textContent='';
+};
+
+// Add logout button to app (injected after render)
+function addLogoutBtn(){
+  if(document.getElementById('logout-btn'))return;
+  const btn=document.createElement('button');
+  btn.id='logout-btn';
+  btn.title='התנתק';
+  btn.textContent='👤';
+  btn.style.cssText='position:fixed;bottom:16px;left:16px;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);font-size:16px;cursor:pointer;z-index:100;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.1)';
+  btn.onclick=async()=>{
+    if(!confirm('להתנתק מהאפליקציה?'))return;
+    await window._fbSignOut();
+    location.reload();
+  };
+  document.body.appendChild(btn);
+}
+
+function bootApp(){
+  // PWA banner
   const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
   const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent)&&/iphone|ipad/i.test(navigator.userAgent);
   if(isSafari&&!isStandalone&&!sessionStorage.getItem('pwa-banner-dismissed')){
@@ -1697,8 +2011,39 @@ function checkAllInList(){
     banner.innerHTML=`<span style="flex:1">💡 הוסף למסך הבית לחוויה מלאה + זיהוי קול ⬆️</span><button onclick="sessionStorage.setItem('pwa-banner-dismissed','1');this.parentElement.remove()" style="background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;cursor:pointer">✕</button>`;
     document.getElementById('app').insertAdjacentElement('afterbegin',banner);
   }
-})();
-render();
+  document.getElementById('app').style.display='';
+  render();
+  addLogoutBtn();
+}
+
+// ── Auth state listener ──
+window._onAuthReady=async(user)=>{
+  if(!user){
+    // Not logged in — show login screen
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('app').style.display='none';
+    return;
+  }
+  // Logged in — check if onboarding done
+  try{
+    const snap=await window._fbGetDoc('users/'+user.uid);
+    if(snap.exists()&&snap.data().onboardingDone){
+      // Returning user — go straight to app
+      document.getElementById('auth-screen').classList.add('hidden');
+      bootApp();
+    } else {
+      // New user — show onboarding
+      showOnboarding();
+    }
+  }catch(e){
+    console.error('Firestore read error:',e);
+    document.getElementById('auth-screen').classList.add('hidden');
+    bootApp();
+  }
+};
+
+// Hide app until auth resolves
+document.getElementById('app').style.display='none';
 </script>
 </body>
 </html>
