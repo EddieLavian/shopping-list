@@ -392,10 +392,11 @@ let expandedRecipes={};   // recipeId -> true/false
 let selectedIngredients={}; // recipeId -> Set of ingredient indices
 
 /* ═══════════════════════════════════════════════
-   STORAGE HELPERS
+   STORAGE HELPERS — per-user, keyed by uid
 ═══════════════════════════════════════════════ */
-function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function _uid(){return window._fbUser?.uid||'guest'}
+function store(k,v){try{localStorage.setItem(_uid()+'_'+k,JSON.stringify(v))}catch(e){}}
+function load(k,d){try{const v=localStorage.getItem(_uid()+'_'+k);return v?JSON.parse(v):d}catch(e){return d}}
 function getUserProducts(id){return load('extra_'+id,[])}
 function saveUserProduct(id,p){const a=getUserProducts(id);a.push(p);store('extra_'+id,a)}
 function deleteUserProduct(id,n){store('extra_'+id,getUserProducts(id).filter(p=>p.n!==n))}
