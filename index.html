@@ -601,18 +601,7 @@ function renderProducts(){
     list.appendChild(bar);
   }
 
-  // Show restore button if there are hidden builtin products
-  const hidden=getHiddenProducts(cat.id);
-  const hiddenBuiltin=(cat.products||[]).filter(p=>hidden.includes(p.n));
-  if(hiddenBuiltin.length){
-    const restoreBtn=document.createElement('div');
-    restoreBtn.style.cssText='padding:8px 12px;text-align:center';
-    restoreBtn.innerHTML=`<button style="font-size:11px;color:var(--muted);background:transparent;border:1px dashed var(--border);border-radius:20px;padding:4px 12px;cursor:pointer">↩ שחזר מוצרים מוסתרים (${hiddenBuiltin.length})</button>`;
-    restoreBtn.querySelector('button').onclick=()=>{
-      store('hidden_'+cat.id,[]);renderProducts();showToast('✅ מוצרים שוחזרו');
-    };
-    list.appendChild(restoreBtn);
-  }
+
 }
 
 /* ═══════════════════════════════════════════════
@@ -1320,6 +1309,7 @@ function openAddModal(){
         <span style="font-size:9px;color:var(--muted);white-space:nowrap">דיבור</span>
       </div>
     </div>
+    <button id="ob-defaults-btn" style="width:100%;margin-bottom:10px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer">📦 טען מוצרי ברירת מחדל</button>
     <div class="modal-btns"><button class="btn-cancel" id="mc">ביטול</button><button class="btn-add" style="background:${cat.color}" id="ma">הוסף לרשימה</button></div>
   </div>`;
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
@@ -1381,6 +1371,19 @@ function openAddModal(){
     sr.start();
   };
 
+  overlay.querySelector('#ob-defaults-btn').onclick=()=>{
+    const defaults=getAllProducts(activeCat).filter(p=>p.n); // builtin products
+    const cat=getCat();
+    const builtinProds=(CATS.find(c=>c.id===activeCat)?.products||[]);
+    if(!builtinProds.length){showToast('אין מוצרי ברירת מחדל לקטגוריה זו');return}
+    // Unhide all hidden builtin products
+    store('hidden_'+activeCat,[]);
+    // Clear user-hidden list
+    overlay.remove();
+    if(sr)sr.stop();
+    renderProducts();
+    showToast('✅ מוצרי ברירת מחדל נטענו');
+  };
   overlay.querySelector('#mc').onclick=()=>{if(sr)sr.stop();overlay.remove()};
   overlay.querySelector('#ma').onclick=()=>{
     if(sr)sr.stop();
