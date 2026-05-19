@@ -385,7 +385,9 @@ const CATS=[
 ];
 
 let activeCat='super';
-let allLists=load('lists_by_cat',{});   // {catId: {itemName: item, ...}, ...}
+// allLists נטען מ-localStorage אחרי האימות (ב-bootApp), כי לפני האימות _uid() מחזיר 'guest'
+// ואז קוראים מהמפתח הלא נכון. זו הסיבה שלפני התיקון הסל היה "נעלם" אחרי סגירה.
+let allLists={};
 function shoppingList(){return allLists[activeCat]||(allLists[activeCat]={});}
 let dragItem=null,dragGhost=null,touchProduct=null;
 let activePanel=null;
@@ -1279,7 +1281,7 @@ document.addEventListener('dragover',e=>{e.preventDefault();if(dragGhost){dragGh
    This is the key UX fix: a quick tap or swipe scrolls normally.
    Drag only activates after holding for LONG_PRESS_MS without moving.
    That way the user can scroll the product list naturally with their finger. */
-const LONG_PRESS_MS=350;
+const LONG_PRESS_MS=450;
 const MOVE_THRESHOLD=10;  // px - if finger moves more than this before long-press, it's a scroll
 let pressTimer=null,pressStart=null,isDragging=false;
 
@@ -1790,7 +1792,8 @@ function analyzeVoiceWithAI(transcript){
 /* ═══════════════════════════════════════════════
    CATEGORY MANAGEMENT
 ═══════════════════════════════════════════════ */
-let userCats=load('user_cats',[]);
+// userCats נטען מ-localStorage ב-bootApp (אחרי האימות), מאותה סיבה כמו allLists.
+let userCats=[];
 
 function getAllCats(){
   const hiddenCats=load('hidden_cats',[]);
@@ -2127,6 +2130,11 @@ function addLogoutBtn(){
 }
 
 function bootApp(){
+  // טוענים את הנתונים של המשתמש *עכשיו*, אחרי שהאימות חזר ויש לנו UID אמיתי.
+  // לפני שהזזנו את זה לכאן, הטעינה רצה ברמה הגלובלית עם _fbUser=null, ואז קראו מ-'guest_*' במקום מהמפתח של המשתמש.
+  allLists=load('lists_by_cat',{});
+  userCats=load('user_cats',[]);
+
   // PWA banner
   const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
   const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent)&&/iphone|ipad/i.test(navigator.userAgent);
