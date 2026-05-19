@@ -174,6 +174,9 @@ body{font-family:-apple-system,'Heebo',sans-serif;direction:rtl;background:var(-
 /* Drag ghost */
 .drag-ghost{position:fixed;pointer-events:none;z-index:1000;opacity:0.9;background:var(--card);border-radius:10px;border:1.5px solid var(--green);padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,0.12)}
 
+/* Long-press visual feedback - shows the user that their hold is registering */
+.product.press-active{transform:scale(0.96);background:rgba(29,158,117,0.08);transition:transform 0.15s,background 0.15s}
+
 /* Modals */
 .modal-wrap{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:200;display:flex;align-items:flex-end;justify-content:center}
 .modal{background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:430px;max-height:80vh;overflow-y:auto}
@@ -559,7 +562,7 @@ function renderProducts(){
         renderProducts();
       };
     } else {
-      div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">גרור להוסיף</div></div><button class="remove-product-btn" data-n="${p.n}">×</button>`;
+      div.innerHTML=`<span class="drag-handle">⠿</span><span class="product-emoji">${p.e}</span><div style="flex:1;min-width:0"><div class="product-name">${p.n}</div><div class="product-hint">החזק וגרור</div></div><button class="remove-product-btn" data-n="${p.n}">×</button>`;
       div.setAttribute('draggable','true');
       div.addEventListener('dragstart',ev=>{dragItem=p;ev.dataTransfer.effectAllowed='copy';createGhost(p,ev.clientX,ev.clientY)});
       div.addEventListener('dragend',()=>{removeGhost();dragItem=null});
@@ -1272,24 +1275,103 @@ function createGhost(p,x,y){removeGhost();dragGhost=document.createElement('div'
 function removeGhost(){if(dragGhost){dragGhost.remove();dragGhost=null}}
 document.addEventListener('dragover',e=>{e.preventDefault();if(dragGhost){dragGhost.style.left=(e.clientX-60)+'px';dragGhost.style.top=(e.clientY-20)+'px'}});
 
+/* Touch drag with long-press activation.
+   This is the key UX fix: a quick tap or swipe scrolls normally.
+   Drag only activates after holding for LONG_PRESS_MS without moving.
+   That way the user can scroll the product list naturally with their finger. */
+const LONG_PRESS_MS=350;
+const MOVE_THRESHOLD=10;  // px - if finger moves more than this before long-press, it's a scroll
+let pressTimer=null,pressStart=null,isDragging=false;
+
 function touchStart(e,p){
-  touchProduct=p;createGhost(p,e.touches[0].clientX,e.touches[0].clientY);
-  document.addEventListener('touchmove',onTM,{passive:false});
-  document.addEventListener('touchend',onTE,{once:true});
+  const t=e.touches[0];
+  pressStart={x:t.clientX,y:t.clientY,target:e.currentTarget};
+  touchProduct=p;
+  isDragging=false;
+
+  // Start the long-press timer. If it fires, drag begins.
+  pressTimer=setTimeout(()=>{
+    pressTimer=null;
+    isDragging=true;
+    // Haptic feedback - lets user feel that the drag has "engaged"
+    if(navigator.vibrate)navigator.vibrate(30);
+    if(pressStart&&pressStart.target)pressStart.target.classList.add('press-active');
+    createGhost(p,pressStart.x,pressStart.y);
+    document.addEventListener('touchmove',onTM,{passive:false});
+  },LONG_PRESS_MS);
+
+  // Watch for movement - if user moves before long-press fires, they're scrolling
+  document.addEventListener('touchmove',checkScroll,{passive:true});
+  document.addEventListener('touchend',onTouchEnd,{once:true});
+  document.addEventListener('touchcancel',onTouchCancel,{once:true});
 }
+
+function checkScroll(e){
+  if(!pressTimer||!pressStart)return;
+  const t=e.touches[0];
+  const dx=Math.abs(t.clientX-pressStart.x);
+  const dy=Math.abs(t.clientY-pressStart.y);
+  if(dx>MOVE_THRESHOLD||dy>MOVE_THRESHOLD){
+    // User started scrolling - cancel pending drag activation
+    clearTimeout(pressTimer);
+    pressTimer=null;
+    cleanupTouch();
+  }
+}
+
 function onTM(e){
-  e.preventDefault();const t=e.touches[0];
+  if(!isDragging)return;
+  e.preventDefault();
+  const t=e.touches[0];
   if(dragGhost){dragGhost.style.left=(t.clientX-60)+'px';dragGhost.style.top=(t.clientY-20)+'px'}
   const dz=document.getElementById('drop-zone');if(!dz)return;
   const r=dz.getBoundingClientRect();
   dz.classList.toggle('drag-over',t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom);
 }
-function onTE(e){
+
+function onTouchEnd(e){
+  // Case 1: long-press never fired - user just tapped or scrolled briefly. Do nothing.
+  if(pressTimer){
+    clearTimeout(pressTimer);
+    pressTimer=null;
+    cleanupTouch();
+    return;
+  }
+  // Case 2: drag never engaged (movement cancelled it). Do nothing.
+  if(!isDragging){
+    cleanupTouch();
+    return;
+  }
+  // Case 3: drag was active - check if dropped on the cart
   document.removeEventListener('touchmove',onTM);
   const t=e.changedTouches[0];
   const dz=document.getElementById('drop-zone');
-  if(dz){const r=dz.getBoundingClientRect();if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom&&touchProduct)addToList(touchProduct);}
-  dz&&dz.classList.remove('drag-over');removeGhost();touchProduct=null;
+  if(dz){
+    const r=dz.getBoundingClientRect();
+    if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom&&touchProduct){
+      addToList(touchProduct);
+    }
+    dz.classList.remove('drag-over');
+  }
+  removeGhost();
+  cleanupTouch();
+}
+
+function onTouchCancel(){
+  if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}
+  document.removeEventListener('touchmove',onTM);
+  removeGhost();
+  const dz=document.getElementById('drop-zone');
+  if(dz)dz.classList.remove('drag-over');
+  cleanupTouch();
+}
+
+function cleanupTouch(){
+  document.removeEventListener('touchmove',checkScroll);
+  if(pressStart&&pressStart.target)pressStart.target.classList.remove('press-active');
+  touchProduct=null;
+  pressStart=null;
+  isDragging=false;
 }
 
 /* ═══════════════════════════════════════════════
